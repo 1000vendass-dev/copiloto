@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-brand: #2563eb;
+  --color-brand-600: #1d4ed8;
+  --color-brand-700: #1e40af;
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-muted: var(--muted);
+  --color-muted-2: var(--muted-2);
+  --color-border: var(--border);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --muted: #eef0f3;
+  --muted-2: #e2e5ea;
+  --border: #dde1e7;
+  --fg: #111827;
+  --fg-muted: #6b7280;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b0f16;
+    --surface: #121823;
+    --muted: #1b2330;
+    --muted-2: #243042;
+    --border: #263041;
+    --fg: #e8ecf2;
+    --fg-muted: #94a0b2;
+    color-scheme: dark;
+  }
+}
+
+html, body { background: var(--bg); color: var(--fg); }
+body { -webkit-tap-highlight-color: transparent; }
+/* evita zoom automático no iOS ao focar campos */
+input, select, textarea { font-size: 16px; }
+.pb-safe { padding-bottom: env(safe-area-inset-bottom); }

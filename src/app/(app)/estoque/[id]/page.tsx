@@ -28,7 +28,7 @@ export default async function VeiculoPage({ params }: { params: Promise<{ id: st
   const { vehicle: v, images, features, leads } = data;
   const supabase = await createClient();
   const [{ data: shareRows }, { data: openLeads }, origin] = await Promise.all([
-    supabase.from("vehicle_shares").select("id,token,price,show_price,views,last_viewed_at,expires_at,revoked,created_at,leads(name)")
+    supabase.from("vehicle_shares").select("id,token,price,show_price,message,views,last_viewed_at,expires_at,revoked,created_at,lead_id,leads(name,phone)")
       .eq("vehicle_id", v.id).order("created_at", { ascending: false }).limit(10),
     supabase.from("leads").select("id,name").in("stage", OPEN_STAGES).order("name").limit(500),
     siteOrigin(),
@@ -77,7 +77,7 @@ export default async function VeiculoPage({ params }: { params: Promise<{ id: st
             </dl>
           </Card>
           {v.status !== "vendido" ? (
-            <Card><SharePanel vehicleId={v.id} basePrice={v.sale_price} leads={openLeads ?? []} shares={(shareRows ?? []) as unknown as ShareRow[]} origin={origin} /></Card>
+            <Card><SharePanel vehicleId={v.id} vehicleTitle={`${v.brand} ${v.model} ${v.year_model ?? ""}`.trim()} basePrice={v.sale_price == null ? null : Number(v.sale_price)} leads={openLeads ?? []} shares={(shareRows ?? []) as unknown as ShareRow[]} origin={origin} /></Card>
           ) : null}
           <Card>
             <CardTitle className="mb-3">Leads interessados</CardTitle>

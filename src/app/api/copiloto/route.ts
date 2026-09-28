@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
   try {
     const { reply, actions, usage } = await runCopiloto({
       apiKey,
-      model: process.env.COPILOTO_MODEL || "claude-sonnet-5",
+      model: process.env.COPILOTO_MODEL || "claude-haiku-4-5",
       system: systemPrompt({ userName: c.userName, teamName: c.teamName, stores, memories: (mems ?? []).map((m) => m.content) }),
       history: clean,
       userText: text,

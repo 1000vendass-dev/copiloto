@@ -144,7 +144,7 @@ export const TOOLS: Tool[] = [
     description: "Gera o link da ficha (fotos + dados) para enviar ao cliente, com preço personalizado (ex.: preço de tabela + margem). Devolve url e texto pronto para WhatsApp.",
     input_schema: { type: "object", properties: {
       vehicle_id: { type: "string" }, stock_code: { type: "string" }, lead_id: { type: "string" }, lead_name: { type: "string" },
-      price: { type: "number", description: "preço final para o cliente" }, markup: { type: "number", description: "valor a somar ao preço de tabela" },
+      price: { type: "number", description: "preço final para o cliente" }, markup: { type: "number", description: "valor a somar ao preço de tabela" }, markup_percent: { type: "number", description: "percentual a somar ao preço de tabela (5 = 5%)" },
       show_price: { type: "boolean" }, message: { type: "string" }, days: { type: "integer" } } },
     run: async (a, ctx) => {
       let vq = ctx.supabase.from("vehicles").select("id,brand,model,year_model,sale_price,status,stock_code");
@@ -162,7 +162,10 @@ export const TOOLS: Tool[] = [
         lead = data;
       }
       const base = v.sale_price === null ? null : Number(v.sale_price);
-      const price = num(a.price) ?? (base !== null && num(a.markup) !== null ? base + num(a.markup)! : base);
+      const pct = num(a.markup_percent);
+      const price = num(a.price)
+        ?? (base !== null && num(a.markup) !== null ? base + num(a.markup)!
+        : base !== null && pct !== null ? Math.round((base * (1 + pct / 100)) / 10) * 10 : base);
       const days = Math.min(90, Math.max(1, Number(a.days) || 15));
       const show = a.show_price !== false && price !== null;
       const { data: share, error } = await ctx.supabase.from("vehicle_shares").insert({
@@ -222,7 +225,7 @@ export const TOOLS: Tool[] = [
   },
   {
     name: "create_lead",
-    description: "Cria um novo lead. Antes, use search_leads para evitar duplicado. O campo notes JÁ vira nota (não chame create_note depois). Se o usuário relatou uma conversa, informe contact_type para registrar o contato na timeline no mesmo passo.",
+    description: "NÃO use para relato de cliente (use registrar_atendimento). Cria um novo lead. Antes, use search_leads para evitar duplicado. O campo notes JÁ vira nota (não chame create_note depois). Se o usuário relatou uma conversa, informe contact_type para registrar o contato na timeline no mesmo passo.",
     input_schema: { type: "object", required: ["name"], properties: {
       ...leadFields,
       stage: { type: "string", enum: ["novo", "primeiro_contato", "atendimento", "qualificado", "visita", "proposta", "negociacao", "sem_resposta"] },
@@ -250,7 +253,7 @@ export const TOOLS: Tool[] = [
   },
   {
     name: "update_lead",
-    description: "Atualiza dados de um lead (interesse, orçamento, prazo, temperatura, próxima ação, etapa...). Mudar etapa para 'venda' ou 'perdido' exige confirmação.",
+    description: "Use para venda/perda e ajustes pontuais; relato de conversa vai em registrar_atendimento. Atualiza dados de um lead (interesse, orçamento, prazo, temperatura, próxima ação, etapa...). Mudar etapa para 'venda' ou 'perdido' exige confirmação.",
     input_schema: { type: "object", properties: { lead_id: { type: "string" }, lead_name: { type: "string" }, ...leadFields, stage: { type: "string", enum: STAGE_VALUES }, lost_reason: { type: "string" }, closed_value: { type: "number" }, confirmed: { type: "boolean" } } },
     run: async (a, ctx) => {
       const r = await resolveLead(ctx, a);
@@ -397,7 +400,7 @@ export const TOOLS: Tool[] = [
   },
   {
     name: "create_task",
-    description: "Cria tarefa / follow-up / lembrete. Use due_at em ISO com -03:00. Informe lead_id ou lead_name quando for sobre um cliente.",
+    description: "NÃO use para relato de cliente (use registrar_atendimento). Cria tarefa / follow-up / lembrete. Use due_at em ISO com -03:00. Informe lead_id ou lead_name quando for sobre um cliente.",
     input_schema: { type: "object", required: ["title"], properties: { title: { type: "string" }, due_at: { type: "string" }, priority: { type: "string", enum: ["baixa", "media", "alta"] }, lead_id: { type: "string" }, lead_name: { type: "string" }, description: { type: "string" } } },
     run: async (a, ctx) => {
       const title = str(a.title, 200);
@@ -513,7 +516,7 @@ export const TOOLS: Tool[] = [
   },
   {
     name: "create_activity",
-    description: "Registra um contato/interação na timeline (ligação, WhatsApp, e-mail, visita, test-drive, follow-up).",
+    description: "NÃO use para relato de cliente (use registrar_atendimento). Registra um contato/interação na timeline (ligação, WhatsApp, e-mail, visita, test-drive, follow-up).",
     input_schema: { type: "object", required: ["type"], properties: { lead_id: { type: "string" }, lead_name: { type: "string" }, customer_id: { type: "string" }, type: { type: "string", enum: ["ligacao", "whatsapp", "email", "visita", "test_drive", "follow_up"] }, description: { type: "string" }, occurred_at: { type: "string" } } },
     run: async (a, ctx) => {
       let leadId: string | null = null;
@@ -552,7 +555,7 @@ export const TOOLS: Tool[] = [
   },
   {
     name: "create_note",
-    description: "Salva uma nota (contexto qualitativo) num lead ou cliente. Ex.: 'usa o carro para trabalhar, tem urgência'.",
+    description: "NÃO use para relato de cliente (use registrar_atendimento). Salva uma nota (contexto qualitativo) num lead ou cliente. Ex.: 'usa o carro para trabalhar, tem urgência'.",
     input_schema: { type: "object", required: ["content"], properties: { content: { type: "string" }, lead_id: { type: "string" }, lead_name: { type: "string" }, customer_id: { type: "string" } } },
     run: async (a, ctx) => {
       const content = str(a.content, 4000);

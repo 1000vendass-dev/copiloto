@@ -35,7 +35,9 @@ link de WhatsApp).
 - Histórico enviado: só as **6 últimas mensagens** de texto. O contexto de negócio vem do banco pelas ferramentas.
 - `max_tokens` 1000; resultados de ferramenta limitados a 12 KB; respostas curtas por regra do prompt.
 - O consumo de cada resposta fica em `ai_messages.meta.usage` (entrada, saída, cache lido/gravado).
-- Para gastar menos ainda, `COPILOTO_MODEL=claude-haiku-4-5` (mais barato; menos preciso em mensagens longas).
+- Modelo padrão: **`claude-haiku-4-5`** (o mais barato). O prompt foi escrito para ele: árvore de decisão (qual ferramenta),
+  guia campo a campo do `registrar_atendimento`, 8 exemplos mensagem → chamadas e tabela pronta dos próximos 8 dias
+  (evita erro de data). Para trocar, defina `COPILOTO_MODEL` na Vercel (ex.: `claude-sonnet-5`).
 
 ## Ferramentas (`src/features/ai/tools.ts`)
 

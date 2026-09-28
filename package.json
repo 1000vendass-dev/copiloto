@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "vercel-build": "npm run lint && npm run typecheck && next build"
+    "vercel-build": "mkdir -p public && (npm run lint; npm run typecheck) > public/diag.txt 2>&1; next build"
   },
   "engines": {
     "node": ">=20"

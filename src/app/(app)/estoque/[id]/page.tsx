@@ -58,7 +58,7 @@ export default async function VeiculoPage({ params }: { params: Promise<{ id: st
               <span className="text-2xl font-bold tabular-nums">{formatBRL(v.sale_price)}</span>
               <Badge className={statusClass(v.status)}>{statusLabel(v.status)}</Badge>
             </div>
-            <VehicleStatusControl id={v.id} status={v.status} />
+            <VehicleStatusControl key={v.status} id={v.id} status={v.status} />
             <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
               {specs.filter(([, val]) => val !== null && val !== undefined && val !== "").map(([k, val]) => (
                 <div key={k}><dt className="text-xs text-fg-muted">{k}</dt><dd>{val}</dd></div>

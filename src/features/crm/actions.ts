@@ -125,8 +125,12 @@ export async function convertLeadToCustomer(leadId: string): Promise<ActionResul
   }
   const { error } = await supabase.from("leads").update({ customer_id: customerId }).eq("id", leadId);
   if (error) return { ok: false, error: dbError(error.message) };
-  // vincula o histórico já existente do lead ao cliente
-  await supabase.from("activities").update({ customer_id: customerId }).eq("lead_id", leadId).is("customer_id", null);
+  // vincula todo o histórico já existente do lead ao cliente
+  await Promise.all(
+    ["activities", "tasks", "notes", "appointments", "proposals"].map((t) =>
+      supabase.from(t).update({ customer_id: customerId }).eq("lead_id", leadId).is("customer_id", null),
+    ),
+  );
   revalidateCrm(leadId, customerId);
   return { ok: true, id: customerId! };
 }

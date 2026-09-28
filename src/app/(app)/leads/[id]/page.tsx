@@ -11,6 +11,7 @@ import {
 } from "@/features/crm/components/lead-controls";
 import { Timeline } from "@/features/crm/components/timeline";
 import { getLead } from "@/features/crm/queries";
+import { statusLabel } from "@/features/inventory/constants";
 import { getSession } from "@/lib/auth";
 import { formatBRL, formatDateTime } from "@/lib/utils";
 
@@ -63,7 +64,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
         <div className="space-y-4 lg:col-span-1">
           <Card className="space-y-3">
             <CardTitle>Negociação</CardTitle>
-            <StageControl leadId={lead.id} stage={lead.stage} />
+            <StageControl key={lead.stage} leadId={lead.id} stage={lead.stage} />
             <TemperatureControl leadId={lead.id} value={lead.temperature} />
             <dl className="space-y-2 text-sm">
               {info.filter(([, v]) => v).map(([k, v]) => (
@@ -77,7 +78,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
             {vehicle ? (
               <Link href={`/estoque/${vehicle.id}`} className="block text-sm hover:underline">
                 {vehicle.brand} {vehicle.model} {vehicle.version} {vehicle.year_model}
-                <div className="text-fg-muted">{formatBRL(vehicle.sale_price)} · {vehicle.status}</div>
+                <div className="text-fg-muted">{formatBRL(vehicle.sale_price)} · {statusLabel(vehicle.status)}</div>
               </Link>
             ) : (
               <p className="text-sm text-fg-muted">Nenhum vinculado. Use “Editar” para escolher do estoque.</p>

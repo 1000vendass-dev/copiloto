@@ -99,7 +99,7 @@ export function SharePanel({ vehicleId, vehicleTitle, basePrice, leads, shares, 
   if (result?.ok && result.url) {
     return (
       <div className="space-y-3">
-        <Alert kind="success">Link pronto{result.leadName ? ` para ${result.leadName}` : ""}. Ele fica salvo em "Fichas enviadas" para reenviar quando quiser.</Alert>
+        <Alert kind="success">Link pronto{result.leadName ? ` para ${result.leadName}` : ""}. Ele fica salvo em “Fichas enviadas” para reenviar quando quiser.</Alert>
         <div className="break-all rounded-lg bg-muted p-2 text-xs">{result.url}</div>
         <a href={waLink(result.phone, result.text ?? result.url)} target="_blank" rel="noopener noreferrer" className="block">
           <Button className="w-full bg-green-600 hover:bg-green-700" size="lg"><MessageCircle className="h-4 w-4" />Enviar no WhatsApp</Button>

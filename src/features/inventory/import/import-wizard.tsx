@@ -10,12 +10,18 @@ import { cn, formatBRL } from "@/lib/utils";
 import { previewImport, runImport, type PreviewItem } from "./actions";
 import { TARGET_FIELDS, buildRow, detectMapping, type ImportRow, type Mapping, type TargetKey } from "./normalize";
 
+const FIELD_LABEL: Record<string, string> = {
+  sale_price: "preço", km: "km", version: "versão", color: "cor", store: "loja", year_model: "ano", transmission: "câmbio", fuel: "combustível",
+};
+
 type Sheet = { headers: string[]; rows: unknown[][]; fileName: string };
 
 async function readFile(file: File): Promise<Sheet> {
   const XLSX = await import("xlsx");
   const buf = await file.arrayBuffer();
-  const wb = XLSX.read(buf, { type: "array", cellDates: false, codepage: 65001 });
+  const isCsv = /\.csv$/i.test(file.name) || file.type === "text/csv";
+  // CSV: lê tudo como texto (senão "40.270" km vira 40,27); Excel: mantém os números da célula
+  const wb = XLSX.read(buf, { type: "array", cellDates: false, codepage: 65001, raw: isCsv });
   const ws = wb.Sheets[wb.SheetNames[0]];
   const all = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, raw: true, defval: "", blankrows: false });
   // primeira linha com pelo menos 2 células preenchidas = cabeçalho
@@ -141,7 +147,7 @@ export function ImportWizard() {
                   const p = byLine.get(r.line);
                   const st = !r.data ? { t: `Erro: ${r.errors.join(", ")}`, c: "text-red-700" }
                     : p?.action === "novo" ? { t: "Novo", c: "text-green-700" }
-                    : p?.action === "atualizar" ? { t: `Atualiza: ${p.changes?.join(", ")}`, c: "text-blue-700" }
+                    : p?.action === "atualizar" ? { t: `Atualiza: ${p.changes?.map((c) => FIELD_LABEL[c] ?? c).join(", ")}`, c: "text-blue-700" }
                     : { t: "Já existe, sem mudança", c: "text-fg-muted" };
                   return (
                     <tr key={r.line} className="border-t border-border">

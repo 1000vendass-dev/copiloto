@@ -10,11 +10,14 @@
     "typecheck": "tsc --noEmit",
     "vercel-build": "npm run lint && npm run typecheck && next build"
   },
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.57.0",
     "clsx": "^2.1.1",
+    "heic2any": "^0.0.4",
     "lucide-react": "^0.540.0",
     "next": "^15.5.0",
     "react": "^19.1.0",

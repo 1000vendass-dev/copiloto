@@ -167,3 +167,18 @@ export async function moveImage(imageId: string, dir: -1 | 1): Promise<ActionRes
   revalidateInventory(img.vehicle_id);
   return { ok: true };
 }
+
+/** Troca o arquivo de uma foto (ex.: HEIC → JPG) mantendo posição e foto principal. */
+export async function replaceImageFile(imageId: string, newPath: string): Promise<ActionResult> {
+  const session = await getSession();
+  if (!uuid.safeParse(imageId).success) return { ok: false, error: "Foto inválida." };
+  const supabase = await createClient();
+  const { data: img } = await supabase.from("vehicle_images").select("vehicle_id,storage_path").eq("id", imageId).maybeSingle();
+  if (!img) return { ok: false, error: "Foto não encontrada." };
+  if (!newPath.startsWith(`${session.teamId}/${img.vehicle_id}/`) || newPath.includes("..")) return { ok: false, error: "Caminho inválido." };
+  const { error } = await supabase.from("vehicle_images").update({ storage_path: newPath }).eq("id", imageId);
+  if (error) return { ok: false, error: friendly(error.message) };
+  await supabase.storage.from(IMAGE_BUCKET).remove([img.storage_path]);
+  revalidateInventory(img.vehicle_id);
+  return { ok: true };
+}

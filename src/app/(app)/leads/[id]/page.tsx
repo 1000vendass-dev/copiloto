@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { MessageCircle, Pencil, Phone } from "lucide-react";
+import { CalendarPlus, FileText, MessageCircle, Pencil, Phone } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
@@ -55,6 +55,8 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
                 <a href={waLink(lead.phone)} target="_blank" rel="noopener noreferrer"><Button variant="outline" size="icon" aria-label="WhatsApp"><MessageCircle className="h-4 w-4" /></Button></a>
               </>
             ) : null}
+            <Link href={`/propostas/nova?lead=${lead.id}`}><Button variant="outline"><FileText className="h-4 w-4" />Proposta</Button></Link>
+            <Link href={`/agenda?lead=${lead.id}`}><Button variant="outline" size="icon" aria-label="Agendar"><CalendarPlus className="h-4 w-4" /></Button></Link>
             <Link href={`/leads/${lead.id}/editar`}><Button variant="outline"><Pencil className="h-4 w-4" />Editar</Button></Link>
           </>
         }

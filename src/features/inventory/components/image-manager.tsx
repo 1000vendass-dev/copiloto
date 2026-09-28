@@ -8,14 +8,28 @@ import { Alert } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import type { VehicleImage } from "@/types/db";
-import { deleteImage, moveImage, registerImages, setPrimaryImage } from "../actions";
+import { deleteImage, moveImage, registerImages, replaceImageFile, setPrimaryImage } from "../actions";
 import { IMAGE_BUCKET } from "../constants";
 
 const MAX_SIDE = 1600;
 const MAX_BYTES = 10 * 1024 * 1024;
 
+const isHeic = (f: { type?: string; name?: string }) =>
+  /image\/hei[cf]/i.test(f.type ?? "") || /\.hei[cf]$/i.test(f.name ?? "");
+
+/** HEIC/HEIF (fotos do iPhone) → JPEG no próprio navegador. Carrega o conversor só quando precisa. */
+async function heicToJpeg(blob: Blob): Promise<Blob> {
+  const { default: heic2any } = await import("heic2any");
+  const out = await heic2any({ blob, toType: "image/jpeg", quality: 0.85 });
+  return Array.isArray(out) ? out[0] : out;
+}
+
 /** Redimensiona para no máx. 1600px e converte para JPEG ~82%. Mantém o original se não conseguir decodificar. */
-async function compress(file: File): Promise<Blob> {
+async function compress(input: File | Blob, name = ""): Promise<Blob> {
+  let file: Blob = input;
+  if (isHeic({ type: input.type, name: (input as File).name ?? name })) {
+    try { file = await heicToJpeg(input); } catch { /* segue com o original */ }
+  }
   try {
     const bitmap = await createImageBitmap(file);
     const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
@@ -25,7 +39,7 @@ async function compress(file: File): Promise<Blob> {
     canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
     bitmap.close();
     const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/jpeg", 0.82));
-    if (blob && blob.size < file.size) return blob;
+    if (blob && (blob.size < file.size || file.type !== "image/jpeg")) return blob;
   } catch {
     /* formato não decodificável no navegador (ex.: HEIC fora do Safari) */
   }
@@ -50,9 +64,10 @@ export function ImageManager({ vehicleId, teamId, images }: { vehicleId: string;
     for (let i = 0; i < list.length; i++) {
       const f = list[i];
       setBusy(`Enviando ${i + 1} de ${list.length}…`);
-      if (!f.type.startsWith("image/")) { failed.push(`${f.name} (não é imagem)`); continue; }
+      if (!f.type.startsWith("image/") && !isHeic(f)) { failed.push(`${f.name} (não é imagem)`); continue; }
       const blob = await compress(f);
       if (blob.size > MAX_BYTES) { failed.push(`${f.name} (maior que 10 MB)`); continue; }
+      if (isHeic(blob) || (blob === f && isHeic(f))) { failed.push(`${f.name} (não foi possível converter a foto do iPhone)`); continue; }
       const ext = blob.type === "image/jpeg" ? "jpg" : (f.name.split(".").pop() ?? "jpg").toLowerCase();
       const path = `${teamId}/${vehicleId}/${crypto.randomUUID()}.${ext}`;
       const { error: upErr } = await supabase.storage.from(IMAGE_BUCKET).upload(path, blob, {
@@ -72,6 +87,34 @@ export function ImageManager({ vehicleId, teamId, images }: { vehicleId: string;
     if (camRef.current) camRef.current.value = "";
   }
 
+  const heicImages = images.filter((i) => /\.hei[cf]$/i.test(i.storage_path));
+
+  async function convertExisting() {
+    setError(null);
+    const supabase = createClient();
+    let fail = 0;
+    for (let i = 0; i < heicImages.length; i++) {
+      const img = heicImages[i];
+      setBusy(`Convertendo ${i + 1} de ${heicImages.length}…`);
+      try {
+        if (!img.url) throw new Error("sem url");
+        const res = await fetch(img.url);
+        if (!res.ok) throw new Error("download");
+        const jpg = await compress(await res.blob(), img.storage_path);
+        if (jpg.type !== "image/jpeg") throw new Error("conversao");
+        const path = `${teamId}/${vehicleId}/${crypto.randomUUID()}.jpg`;
+        const { error: upErr } = await supabase.storage.from(IMAGE_BUCKET).upload(path, jpg, { contentType: "image/jpeg", cacheControl: "31536000" });
+        if (upErr) throw upErr;
+        const r = await replaceImageFile(img.id, path);
+        if (!r.ok) { await supabase.storage.from(IMAGE_BUCKET).remove([path]); throw new Error(r.error); }
+      } catch {
+        fail++;
+      }
+    }
+    setBusy(null);
+    if (fail) setError(`${fail} foto(s) não puderam ser convertidas.`);
+  }
+
   const act = (fn: () => Promise<{ ok: boolean; error?: string }>) =>
     start(async () => { const r = await fn(); if (!r.ok) setError(r.error ?? "Erro"); });
 
@@ -82,6 +125,9 @@ export function ImageManager({ vehicleId, teamId, images }: { vehicleId: string;
         <input ref={camRef} type="file" accept="image/*" capture="environment" hidden onChange={(e) => upload(e.target.files)} />
         <Button type="button" variant="outline" disabled={!!busy} onClick={() => fileRef.current?.click()}><ImagePlus className="h-4 w-4" />Adicionar fotos</Button>
         <Button type="button" variant="outline" disabled={!!busy} onClick={() => camRef.current?.click()} className="sm:hidden"><Camera className="h-4 w-4" />Câmera</Button>
+        {heicImages.length ? (
+          <Button type="button" variant="primary" disabled={!!busy} onClick={convertExisting}>Converter {heicImages.length} foto(s) do iPhone</Button>
+        ) : null}
         {busy ? <span className="self-center text-sm text-fg-muted">{busy}</span> : null}
       </div>
       {error ? <Alert>{error}</Alert> : null}

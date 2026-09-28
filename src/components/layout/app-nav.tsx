@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { NAV_ITEMS } from "./nav-config";
+import { MORE_ITEM, NAV_ITEMS } from "./nav-config";
 
 function isActive(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
@@ -42,7 +42,7 @@ export function Sidebar({ teamName, userName }: { teamName: string; userName: st
 
 export function BottomNav() {
   const pathname = usePathname();
-  const items = NAV_ITEMS.filter((i) => i.mobile);
+  const items = [...NAV_ITEMS.filter((i) => i.mobile), MORE_ITEM];
   return (
     <nav
       className="pb-safe fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/95 backdrop-blur md:hidden"
@@ -55,7 +55,8 @@ export function BottomNav() {
               href={href}
               className={cn(
                 "flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium",
-                isActive(pathname, href) ? "text-brand" : "text-fg-muted",
+                isActive(pathname, href) || (href === "/mais" && NAV_ITEMS.some((i) => !i.mobile && isActive(pathname, i.href)))
+                  ? "text-brand" : "text-fg-muted",
               )}
             >
               <Icon className="h-5 w-5" aria-hidden />

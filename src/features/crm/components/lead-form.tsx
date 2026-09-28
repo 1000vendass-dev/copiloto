@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useFormAction } from "@/lib/use-form-action";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/card";
 import { Field, Input, Select } from "@/components/ui/input";
@@ -27,10 +27,10 @@ export function LeadForm({
   vehicleLabel?: string | null;
   defaultCustomerId?: string;
 }) {
-  const [state, action, pending] = useActionState<ActionResult | undefined, FormData>(lead ? updateLead : createLead, undefined);
+  const [state, onSubmit, pending] = useFormAction(lead ? updateLead : createLead);
 
   return (
-    <form action={action} className="space-y-5">
+    <form onSubmit={onSubmit} className="space-y-5">
       {lead ? <input type="hidden" name="id" value={lead.id} /> : null}
       {state?.error ? <Alert>{state.error}</Alert> : null}
       {state?.ok ? <Alert kind="success">Lead salvo.</Alert> : null}

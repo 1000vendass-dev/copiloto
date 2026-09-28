@@ -1,8 +1,9 @@
 "use client";
 
+import { useFormAction } from "@/lib/use-form-action";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { Check, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -99,10 +100,10 @@ function TargetInputs({ leadId, customerId }: Target) {
 }
 
 export function ContactForm(target: Target) {
-  const [state, action, pending] = useActionState<ActionResult | undefined, FormData>(registerContact, undefined);
+  const [state, onSubmit, pending] = useFormAction(registerContact);
   const ref = useResetOnSuccess(state);
   return (
-    <form ref={ref} action={action} className="space-y-3">
+    <form ref={ref} onSubmit={onSubmit} className="space-y-3">
       <TargetInputs {...target} />
       {state?.error ? <Alert>{state.error}</Alert> : null}
       <div className="grid gap-3 sm:grid-cols-2">
@@ -125,10 +126,10 @@ export function ContactForm(target: Target) {
 }
 
 export function NoteForm(target: Target) {
-  const [state, action, pending] = useActionState<ActionResult | undefined, FormData>(addNote, undefined);
+  const [state, onSubmit, pending] = useFormAction(addNote);
   const ref = useResetOnSuccess(state);
   return (
-    <form ref={ref} action={action} className="space-y-2">
+    <form ref={ref} onSubmit={onSubmit} className="space-y-2">
       <TargetInputs {...target} />
       {state?.error ? <Alert>{state.error}</Alert> : null}
       <Textarea name="content" aria-label="Nova nota" placeholder="Ex.: usa o carro para trabalhar, tem urgência" required />
@@ -138,10 +139,10 @@ export function NoteForm(target: Target) {
 }
 
 export function FollowUpForm(target: Target) {
-  const [state, action, pending] = useActionState<ActionResult | undefined, FormData>(createFollowUp, undefined);
+  const [state, onSubmit, pending] = useFormAction(createFollowUp);
   const ref = useResetOnSuccess(state);
   return (
-    <form ref={ref} action={action} className="space-y-3">
+    <form ref={ref} onSubmit={onSubmit} className="space-y-3">
       <TargetInputs {...target} />
       {state?.error ? <Alert>{state.error}</Alert> : null}
       <Field label="Tarefa" htmlFor="f-title">

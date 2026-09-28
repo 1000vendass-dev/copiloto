@@ -6,19 +6,12 @@ import { z } from "zod";
 import { getSession } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { STAGE_VALUES } from "./constants";
+import { formValues } from "@/lib/forms";
 import { contactSchema, customerSchema, leadSchema, noteSchema, optDateTime } from "./schemas";
 
 export type ActionResult = { ok: boolean; error?: string; id?: string };
 
 const uuid = z.string().uuid();
-
-function formToObject(formData: FormData) {
-  const obj: Record<string, string> = {};
-  formData.forEach((v, k) => {
-    if (typeof v === "string") obj[k] = v;
-  });
-  return obj;
-}
 
 function dbError(message: string | undefined): string {
   if (!message) return "Não foi possível salvar. Tente novamente.";
@@ -39,7 +32,7 @@ function revalidateCrm(leadId?: string | null, customerId?: string | null) {
 
 export async function createLead(_: ActionResult | undefined, formData: FormData): Promise<ActionResult> {
   const session = await getSession();
-  const parsed = leadSchema.safeParse(formToObject(formData));
+  const parsed = leadSchema.safeParse(formValues(formData, leadSchema));
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message };
 
   const supabase = await createClient();
@@ -59,7 +52,8 @@ export async function updateLead(_: ActionResult | undefined, formData: FormData
   const id = uuid.safeParse(formData.get("id"));
   if (!id.success) return { ok: false, error: "Lead inválido." };
   // etapa e motivo de perda mudam só por changeLeadStage (gera timeline)
-  const parsed = leadSchema.omit({ stage: true, lost_reason: true }).safeParse(formToObject(formData));
+  const editSchema = leadSchema.omit({ stage: true, lost_reason: true });
+  const parsed = editSchema.safeParse(formValues(formData, editSchema));
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message };
 
   const supabase = await createClient();
@@ -151,7 +145,7 @@ export async function registerContact(_: ActionResult | undefined, formData: For
   if ((leadId && !leadId.success) || (customerId && !customerId.success) || (!leadId && !customerId)) {
     return { ok: false, error: "Vínculo inválido." };
   }
-  const parsed = contactSchema.safeParse(formToObject(formData));
+  const parsed = contactSchema.safeParse(formValues(formData, contactSchema));
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message };
 
   const supabase = await createClient();
@@ -286,7 +280,7 @@ export async function toggleTag(target: "lead" | "customer", targetId: string, t
 
 export async function createCustomer(_: ActionResult | undefined, formData: FormData): Promise<ActionResult> {
   const session = await getSession();
-  const parsed = customerSchema.safeParse(formToObject(formData));
+  const parsed = customerSchema.safeParse(formValues(formData, customerSchema));
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message };
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -303,7 +297,7 @@ export async function updateCustomer(_: ActionResult | undefined, formData: Form
   await getSession();
   const id = uuid.safeParse(formData.get("id"));
   if (!id.success) return { ok: false, error: "Cliente inválido." };
-  const parsed = customerSchema.safeParse(formToObject(formData));
+  const parsed = customerSchema.safeParse(formValues(formData, customerSchema));
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message };
   const supabase = await createClient();
   const { error, count } = await supabase.from("customers").update(parsed.data, { count: "exact" }).eq("id", id.data);

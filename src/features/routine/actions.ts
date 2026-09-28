@@ -5,15 +5,11 @@ import { z } from "zod";
 import { getSession } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { optDateTime, optText, optUuid } from "@/features/crm/schemas";
+import { formValues } from "@/lib/forms";
 
 export type ActionResult = { ok: boolean; error?: string; id?: string };
 const uuid = z.string().uuid();
 
-function fd2obj(fd: FormData) {
-  const o: Record<string, string> = {};
-  fd.forEach((v, k) => { if (typeof v === "string") o[k] = v; });
-  return o;
-}
 function revalidateRoutine(leadId?: string | null, customerId?: string | null) {
   ["/", "/tarefas", "/agenda"].forEach((p) => revalidatePath(p));
   if (leadId) revalidatePath(`/leads/${leadId}`);
@@ -32,7 +28,7 @@ const taskSchema = z.object({
 
 export async function saveTask(_: ActionResult | undefined, fd: FormData): Promise<ActionResult> {
   const session = await getSession();
-  const parsed = taskSchema.safeParse(fd2obj(fd));
+  const parsed = taskSchema.safeParse(formValues(fd, taskSchema));
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message };
   const supabase = await createClient();
   const id = fd.get("id");
@@ -78,7 +74,7 @@ const apptSchema = z.object({
 
 export async function saveAppointment(_: ActionResult | undefined, fd: FormData): Promise<ActionResult> {
   const session = await getSession();
-  const parsed = apptSchema.safeParse(fd2obj(fd));
+  const parsed = apptSchema.safeParse(formValues(fd, apptSchema));
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message };
   if (parsed.data.ends_at && parsed.data.starts_at && parsed.data.ends_at < parsed.data.starts_at) {
     return { ok: false, error: "O término precisa ser depois do início." };

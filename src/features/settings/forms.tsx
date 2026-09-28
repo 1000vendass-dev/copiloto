@@ -1,15 +1,15 @@
 "use client";
 
-import { useActionState } from "react";
+import { useFormAction } from "@/lib/use-form-action";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/card";
 import { Field, Input } from "@/components/ui/input";
 import { updateProfile, updateTeamName, type FormState } from "./actions";
 
 export function ProfileForm({ fullName, phone, email }: { fullName: string; phone: string; email: string }) {
-  const [state, action, pending] = useActionState<FormState, FormData>(updateProfile, undefined);
+  const [state, onSubmit, pending] = useFormAction(updateProfile);
   return (
-    <form action={action} className="space-y-4">
+    <form onSubmit={onSubmit} className="space-y-4">
       {state?.error ? <Alert>{state.error}</Alert> : null}
       {state?.success ? <Alert kind="success">{state.success}</Alert> : null}
       <Field label="E-mail" htmlFor="email">
@@ -27,9 +27,9 @@ export function ProfileForm({ fullName, phone, email }: { fullName: string; phon
 }
 
 export function TeamForm({ name, canEdit }: { name: string; canEdit: boolean }) {
-  const [state, action, pending] = useActionState<FormState, FormData>(updateTeamName, undefined);
+  const [state, onSubmit, pending] = useFormAction(updateTeamName);
   return (
-    <form action={action} className="space-y-4">
+    <form onSubmit={onSubmit} className="space-y-4">
       {state?.error ? <Alert>{state.error}</Alert> : null}
       {state?.success ? <Alert kind="success">{state.success}</Alert> : null}
       <Field label="Nome da equipe / loja" htmlFor="name">

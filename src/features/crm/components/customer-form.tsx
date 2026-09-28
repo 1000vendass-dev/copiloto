@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useFormAction } from "@/lib/use-form-action";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/card";
 import { ConfirmButton } from "@/components/ui/confirm-button";
@@ -9,9 +9,9 @@ import type { Customer } from "@/types/db";
 import { createCustomer, deleteCustomer, updateCustomer, type ActionResult } from "../actions";
 
 export function CustomerForm({ customer }: { customer?: Customer }) {
-  const [state, action, pending] = useActionState<ActionResult | undefined, FormData>(customer ? updateCustomer : createCustomer, undefined);
+  const [state, onSubmit, pending] = useFormAction(customer ? updateCustomer : createCustomer);
   return (
-    <form action={action} className="space-y-4">
+    <form onSubmit={onSubmit} className="space-y-4">
       {customer ? <input type="hidden" name="id" value={customer.id} /> : null}
       {state?.error ? <Alert>{state.error}</Alert> : null}
       {state?.ok ? <Alert kind="success">Cliente salvo.</Alert> : null}

@@ -1,7 +1,7 @@
 "use client";
 
+import { useFormAction } from "@/lib/use-form-action";
 import Link from "next/link";
-import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/card";
 import { Field, Input } from "@/components/ui/input";
@@ -14,7 +14,7 @@ const titles = { login: "Entrar", cadastro: "Criar conta", recuperar: "Recuperar
 const submits = { login: "Entrar", cadastro: "Criar conta", recuperar: "Enviar link", "nova-senha": "Salvar senha" };
 
 export function AuthForm({ mode, next }: { mode: Mode; next?: string }) {
-  const [state, action, pending] = useActionState<FormState, FormData>(actions[mode], undefined);
+  const [state, onSubmit, pending] = useFormAction(actions[mode]);
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center px-4 py-10">
@@ -22,7 +22,7 @@ export function AuthForm({ mode, next }: { mode: Mode; next?: string }) {
         <div className="text-2xl font-bold tracking-tight">Copiloto</div>
         <p className="text-sm text-fg-muted">Sua operação de vendas em um lugar só</p>
       </div>
-      <form action={action} className="space-y-4 rounded-xl border border-border bg-surface p-5 shadow-sm">
+      <form onSubmit={onSubmit} className="space-y-4 rounded-xl border border-border bg-surface p-5 shadow-sm">
         <h1 className="text-lg font-semibold">{titles[mode]}</h1>
         {state?.error ? <Alert>{state.error}</Alert> : null}
         {state?.success ? <Alert kind="success">{state.success}</Alert> : null}

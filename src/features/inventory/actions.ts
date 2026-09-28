@@ -6,16 +6,12 @@ import { z } from "zod";
 import { getSession } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { IMAGE_BUCKET } from "./constants";
+import { formValues } from "@/lib/forms";
 import { vehicleSchema } from "./schemas";
 
 export type ActionResult = { ok: boolean; error?: string; id?: string };
 const uuid = z.string().uuid();
 
-function formToObject(fd: FormData) {
-  const o: Record<string, string> = {};
-  fd.forEach((v, k) => { if (typeof v === "string") o[k] = v; });
-  return o;
-}
 function features(fd: FormData) {
   const raw = String(fd.get("features") ?? "");
   return [...new Set(raw.split(/[\n,;]/).map((f) => f.trim()).filter(Boolean).map((f) => f.slice(0, 80)))].slice(0, 60);
@@ -41,7 +37,7 @@ async function syncFeatures(vehicleId: string, teamId: string, list: string[]) {
 
 export async function createVehicle(_: ActionResult | undefined, fd: FormData): Promise<ActionResult> {
   const session = await getSession();
-  const parsed = vehicleSchema.safeParse(formToObject(fd));
+  const parsed = vehicleSchema.safeParse(formValues(fd, vehicleSchema));
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message };
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -59,7 +55,7 @@ export async function updateVehicle(_: ActionResult | undefined, fd: FormData): 
   const session = await getSession();
   const id = uuid.safeParse(fd.get("id"));
   if (!id.success) return { ok: false, error: "Veículo inválido." };
-  const parsed = vehicleSchema.safeParse(formToObject(fd));
+  const parsed = vehicleSchema.safeParse(formValues(fd, vehicleSchema));
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message };
   const supabase = await createClient();
   const { error, count } = await supabase.from("vehicles").update(parsed.data, { count: "exact" }).eq("id", id.data);

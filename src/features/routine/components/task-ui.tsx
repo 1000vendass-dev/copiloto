@@ -1,7 +1,8 @@
 "use client";
 
+import { useFormAction } from "@/lib/use-form-action";
 import Link from "next/link";
-import { useActionState, useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { Check, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, EmptyState } from "@/components/ui/card";
@@ -16,11 +17,11 @@ import type { TaskRow } from "../queries";
 export type LeadOption = { id: string; name: string };
 
 export function TaskForm({ leads, task, onDone }: { leads: LeadOption[]; task?: TaskRow; onDone?: () => void }) {
-  const [state, action, pending] = useActionState<ActionResult | undefined, FormData>(saveTask, undefined);
+  const [state, onSubmit, pending] = useFormAction(saveTask);
   const ref = useRef<HTMLFormElement>(null);
   useEffect(() => { if (state?.ok) { if (!task) ref.current?.reset(); onDone?.(); } }, [state, task, onDone]);
   return (
-    <form ref={ref} action={action} className="space-y-3">
+    <form ref={ref} onSubmit={onSubmit} className="space-y-3">
       {task ? <input type="hidden" name="id" value={task.id} /> : null}
       {state?.error ? <Alert>{state.error}</Alert> : null}
       <Field label="Tarefa" htmlFor={`t-title-${task?.id ?? "new"}`}>

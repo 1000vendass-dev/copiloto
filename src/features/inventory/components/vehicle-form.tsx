@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useFormAction } from "@/lib/use-form-action";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/card";
 import { Field, Input, Select, Textarea } from "@/components/ui/input";
@@ -9,10 +9,10 @@ import { createVehicle, updateVehicle, type ActionResult } from "../actions";
 import { BODY_TYPES, FUELS, TRANSMISSIONS, VEHICLE_STATUS } from "../constants";
 
 export function VehicleForm({ vehicle, features = [], stores = [] }: { vehicle?: Vehicle; features?: string[]; stores?: string[] }) {
-  const [state, action, pending] = useActionState<ActionResult | undefined, FormData>(vehicle ? updateVehicle : createVehicle, undefined);
+  const [state, onSubmit, pending] = useFormAction(vehicle ? updateVehicle : createVehicle);
   const v = vehicle;
   return (
-    <form action={action} className="space-y-5">
+    <form onSubmit={onSubmit} className="space-y-5">
       {v ? <input type="hidden" name="id" value={v.id} /> : null}
       {state?.error ? <Alert>{state.error}</Alert> : null}
       {state?.ok ? <Alert kind="success">Veículo salvo.</Alert> : null}

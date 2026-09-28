@@ -1,7 +1,8 @@
 "use client";
 
+import { useFormAction } from "@/lib/use-form-action";
 import Link from "next/link";
-import { useActionState, useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, EmptyState } from "@/components/ui/card";
@@ -27,13 +28,13 @@ export const APPT_STATUS = [
 export function AppointmentForm({ leads, appt, defaultDate, defaultLeadId, onDone }: {
   leads: LeadOption[]; appt?: AppointmentRow; defaultDate?: string; defaultLeadId?: string; onDone?: () => void;
 }) {
-  const [state, action, pending] = useActionState<ActionResult | undefined, FormData>(saveAppointment, undefined);
+  const [state, onSubmit, pending] = useFormAction(saveAppointment);
   const ref = useRef<HTMLFormElement>(null);
   useEffect(() => { if (state?.ok) { if (!appt) ref.current?.reset(); onDone?.(); } }, [state, appt, onDone]);
   const k = appt?.id ?? "new";
   const vLabel = appt?.vehicles ? `${appt.vehicles.brand} ${appt.vehicles.model} ${appt.vehicles.year_model ?? ""}` : null;
   return (
-    <form ref={ref} action={action} className="space-y-3">
+    <form ref={ref} onSubmit={onSubmit} className="space-y-3">
       {appt ? <input type="hidden" name="id" value={appt.id} /> : null}
       {state?.error ? <Alert>{state.error}</Alert> : null}
       {state?.ok && !appt ? <Alert kind="success">Compromisso agendado.</Alert> : null}

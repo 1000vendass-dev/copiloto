@@ -75,6 +75,14 @@ async function resolveLead(ctx: ToolContext, args: Json): Promise<{ id: string }
   return { id: pool[0].id };
 }
 
+/** Outros leads em aberto interessados no mesmo veículo (para a IA avisar o vendedor). */
+async function vehicleConflict(ctx: ToolContext, vehicleId: string | null, exceptLeadId: string): Promise<string | null> {
+  if (!vehicleId) return null;
+  const { data } = await ctx.supabase.from("leads").select("name,stage").eq("vehicle_id", vehicleId).neq("id", exceptLeadId).in("stage", OPEN_STAGES);
+  if (!data?.length) return null;
+  return `Atenção: este veículo também interessa a ${data.map((d) => `${d.name} (${stageLabel(d.stage)})`).join(", ")}. Avise o vendedor.`;
+}
+
 /* ------------------------------ tools ------------------------------ */
 const leadFields = {
   name: { type: "string" }, phone: { type: "string" }, email: { type: "string" }, source: { type: "string", description: "origem: WhatsApp, Instagram, OLX, Loja, Indicação..." },
@@ -142,16 +150,30 @@ export const TOOLS: Tool[] = [
   },
   {
     name: "create_lead",
-    description: "Cria um novo lead. Antes, use search_leads para evitar duplicado com o mesmo nome/telefone.",
-    input_schema: { type: "object", required: ["name"], properties: { ...leadFields, notes: { type: "string", description: "contexto da conversa, vira nota" } } },
+    description: "Cria um novo lead. Antes, use search_leads para evitar duplicado. O campo notes JÁ vira nota (não chame create_note depois). Se o usuário relatou uma conversa, informe contact_type para registrar o contato na timeline no mesmo passo.",
+    input_schema: { type: "object", required: ["name"], properties: {
+      ...leadFields,
+      stage: { type: "string", enum: ["novo", "primeiro_contato", "atendimento", "qualificado", "visita", "proposta", "negociacao", "sem_resposta"] },
+      notes: { type: "string", description: "contexto da conversa, vira nota" },
+      contact_type: { type: "string", enum: ["ligacao", "whatsapp", "email", "visita", "follow_up"], description: "se houve conversa, registra o contato" },
+      contact_summary: { type: "string", description: "resumo do que foi conversado" },
+    } },
     run: async (a, ctx) => {
       const row = pickLead(a);
       if (!row.name) return fail("Nome é obrigatório.");
-      const { data, error } = await ctx.supabase.from("leads").insert({ ...row, team_id: ctx.teamId, owner_id: ctx.userId }).select("*").single();
+      const stage = ["novo", "primeiro_contato", "atendimento", "qualificado", "visita", "proposta", "negociacao", "sem_resposta"].includes(String(a.stage)) ? String(a.stage) : undefined;
+      const { data, error } = await ctx.supabase.from("leads").insert({ ...row, ...(stage ? { stage } : {}), team_id: ctx.teamId, owner_id: ctx.userId }).select("*").single();
       if (error) return fail("Não foi possível criar o lead.");
       const note = str(a.notes, 2000);
       if (note) await ctx.supabase.from("notes").insert({ team_id: ctx.teamId, owner_id: ctx.userId, lead_id: data.id, content: note });
-      return { ok: true, criado: leadBrief(data) };
+      const ct = String(a.contact_type ?? "");
+      const titles: Record<string, string> = { ligacao: "Ligação registrada", whatsapp: "Conversa no WhatsApp", email: "E-mail enviado", visita: "Visita na loja", follow_up: "Follow-up" };
+      if (titles[ct]) {
+        await ctx.supabase.from("activities").insert({ team_id: ctx.teamId, owner_id: ctx.userId, lead_id: data.id, type: ct, title: titles[ct], description: str(a.contact_summary, 2000) ?? note });
+        if (!stage || stage === "novo") await ctx.supabase.from("leads").update({ stage: "primeiro_contato" }).eq("id", data.id).eq("stage", "novo");
+      }
+      const alerta = await vehicleConflict(ctx, (row.vehicle_id as string | null) ?? null, data.id);
+      return { ok: true, criado: leadBrief(data), contato_registrado: Boolean(titles[ct]), ...(alerta ? { alerta } : {}) };
     },
   },
   {
@@ -177,7 +199,8 @@ export const TOOLS: Tool[] = [
       if (!Object.keys(patch).length) return fail("Nada para atualizar.");
       const { data, error } = await ctx.supabase.from("leads").update(patch).eq("id", r.id as string).select("*").maybeSingle();
       if (error || !data) return fail("Não foi possível atualizar o lead.");
-      return { ok: true, atualizado: leadBrief(data), campos: Object.keys(patch) };
+      const alerta = patch.vehicle_id ? await vehicleConflict(ctx, patch.vehicle_id as string, data.id) : null;
+      return { ok: true, atualizado: leadBrief(data), campos: Object.keys(patch), ...(alerta ? { alerta } : {}) };
     },
   },
   {
@@ -389,6 +412,12 @@ export const TOOLS: Tool[] = [
         location: str(a.location, 200), notes: str(a.notes, 2000), lead_id: leadId, customer_id: customerId, vehicle_id: uuid(a.vehicle_id),
       }).select("id,title,type,starts_at").single();
       if (error) return fail("Não foi possível agendar.");
+      if (leadId) {
+        const { data: l } = await ctx.supabase.from("leads").select("next_action_at").eq("id", leadId).maybeSingle();
+        if (!l?.next_action_at || l.next_action_at > startsAt || l.next_action_at < new Date().toISOString()) {
+          await ctx.supabase.from("leads").update({ next_action: str(a.title, 200), next_action_at: startsAt }).eq("id", leadId);
+        }
+      }
       if (leadId && ["visita", "test_drive"].includes(type)) {
         await ctx.supabase.from("leads").update({ stage: "visita" }).eq("id", leadId).in("stage", ["novo", "primeiro_contato", "atendimento", "qualificado", "sem_resposta"]);
       }

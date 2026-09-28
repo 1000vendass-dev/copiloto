@@ -94,6 +94,14 @@ export async function saveAppointment(_: ActionResult | undefined, fd: FormData)
   } else {
     const { error } = await supabase.from("appointments").insert({ ...row, team_id: session.teamId, owner_id: session.userId });
     if (error) return { ok: false, error: friendly(error.message) };
+    // o compromisso vira a próxima ação do lead se for a mais próxima
+    if (parsed.data.lead_id && parsed.data.starts_at) {
+      const { data: l } = await supabase.from("leads").select("next_action_at").eq("id", parsed.data.lead_id).maybeSingle();
+      const now = new Date().toISOString();
+      if (!l?.next_action_at || l.next_action_at > parsed.data.starts_at || l.next_action_at < now) {
+        await supabase.from("leads").update({ next_action: parsed.data.title, next_action_at: parsed.data.starts_at }).eq("id", parsed.data.lead_id);
+      }
+    }
     // visita agendada avança o lead no funil (sem retroceder)
     if (parsed.data.lead_id && ["visita", "test_drive"].includes(parsed.data.type)) {
       await supabase.from("leads").update({ stage: "visita" }).eq("id", parsed.data.lead_id)

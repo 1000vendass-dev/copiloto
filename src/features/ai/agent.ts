@@ -59,7 +59,12 @@ async function callClaude(apiKey: string, model: string, system: string, message
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    if (res.status === 401 || res.status === 403) throw new CopilotoUnavailable("Chave da IA inválida.");
+    if (res.status === 401 || res.status === 403) throw new CopilotoUnavailable("Chave da IA inválida ou revogada. Gere uma nova em console.anthropic.com → API Keys e atualize ANTHROPIC_API_KEY na Vercel.");
+    if (/not scoped to a workspace/i.test(body)) {
+      throw new CopilotoUnavailable("A chave cadastrada não é uma chave de API de workspace (parece ser uma chave de administração). Crie uma chave comum em console.anthropic.com → API Keys, dentro de um workspace, e atualize ANTHROPIC_API_KEY na Vercel.");
+    }
+    if (/credit balance|billing/i.test(body)) throw new CopilotoUnavailable("A conta da Anthropic está sem créditos. Adicione créditos em console.anthropic.com → Billing.");
+    if (/model/i.test(body) && res.status === 404) throw new CopilotoUnavailable("Modelo de IA indisponível. Ajuste COPILOTO_MODEL na Vercel.");
     if (res.status === 429 || res.status === 529) throw new CopilotoUnavailable("A IA está sobrecarregada agora. Tente em instantes.");
     throw new CopilotoUnavailable(`Falha na IA (${res.status}). ${body.slice(0, 120)}`);
   }

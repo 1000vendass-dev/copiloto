@@ -50,9 +50,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "O Copiloto ainda não está ativado: falta configurar a chave da IA (ANTHROPIC_API_KEY) na Vercel." }, { status: 503 });
   }
 
-  // histórico recente (só texto) para dar continuidade à conversa
+  // histórico curto (só texto): o contexto de negócio vem do banco via ferramentas, não do chat
   const [{ data: hist }, { data: mems }, stores] = await Promise.all([
-    c.supabase.from("ai_messages").select("role,content").eq("user_id", c.userId).order("created_at", { ascending: false }).limit(16),
+    c.supabase.from("ai_messages").select("role,content").eq("user_id", c.userId).order("created_at", { ascending: false }).limit(6),
     c.supabase.from("ai_memory").select("content").in("scope", ["geral", "preferencia"]).order("importance", { ascending: false }).limit(15),
     listStores(),
   ]);
@@ -66,16 +66,16 @@ export async function POST(req: NextRequest) {
   await c.supabase.from("ai_messages").insert({ team_id: c.teamId, user_id: c.userId, role: "user", content: text });
 
   try {
-    const { reply, actions } = await runCopiloto({
+    const { reply, actions, usage } = await runCopiloto({
       apiKey,
       model: process.env.COPILOTO_MODEL || "claude-sonnet-5",
       system: systemPrompt({ userName: c.userName, teamName: c.teamName, stores, memories: (mems ?? []).map((m) => m.content) }),
       history: clean,
       userText: text,
-      ctx: { supabase: c.supabase, userId: c.userId, teamId: c.teamId, userConfirmed: isConfirmation(text) },
+      ctx: { supabase: c.supabase, userId: c.userId, teamId: c.teamId, userConfirmed: isConfirmation(text), origin: req.nextUrl.origin },
     });
     const { data: saved } = await c.supabase.from("ai_messages")
-      .insert({ team_id: c.teamId, user_id: c.userId, role: "assistant", content: reply, meta: { actions } })
+      .insert({ team_id: c.teamId, user_id: c.userId, role: "assistant", content: reply, meta: { actions, usage } })
       .select("id,role,content,meta,created_at").single();
     return NextResponse.json({ message: saved ?? { role: "assistant", content: reply, meta: { actions } } });
   } catch (e) {

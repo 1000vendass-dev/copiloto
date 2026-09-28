@@ -7,6 +7,7 @@ import { parseVehicleQuery, type VehicleQuery } from "@/features/inventory/parse
 import { searchVehicles } from "@/features/inventory/queries";
 import { getCallList } from "@/features/routine/queries";
 import { dayRangeSP, todaySP } from "@/lib/dates";
+import { REGISTER_INTERACTION_TOOL, registerInteraction } from "./interaction";
 
 export type ToolContext = {
   supabase: SupabaseClient;
@@ -14,6 +15,8 @@ export type ToolContext = {
   teamId: string;
   /** true quando a última mensagem do usuário é uma confirmação explícita ("sim", "confirmo"...) */
   userConfirmed: boolean;
+  /** origem pública do app (https://...) para montar links de ficha */
+  origin: string;
 };
 
 type Json = Record<string, unknown>;
@@ -108,6 +111,75 @@ function pickLead(args: Json) {
 }
 
 export const TOOLS: Tool[] = [
+  { ...REGISTER_INTERACTION_TOOL, run: registerInteraction },
+  {
+    name: "create_vehicle",
+    description: "Cadastra um veículo no ESTOQUE quando o vendedor informar um carro que entrou/chegou. Mínimo: marca e modelo. Não invente dados não ditos.",
+    input_schema: { type: "object", required: ["brand", "model"], properties: {
+      brand: { type: "string" }, model: { type: "string" }, version: { type: "string" }, year_manufacture: { type: "integer" }, year_model: { type: "integer" },
+      km: { type: "integer" }, color: { type: "string" }, fuel: { type: "string" }, transmission: { type: "string", enum: ["manual", "automatico", "cvt", "automatizado"] },
+      body_type: { type: "string", enum: ["hatch", "sedan", "suv", "picape", "minivan", "utilitario", "moto"] }, engine: { type: "string" }, plate: { type: "string" },
+      sale_price: { type: "number" }, purchase_price: { type: "number" }, store: { type: "string" }, stock_code: { type: "string" }, description: { type: "string" },
+      features: { type: "array", items: { type: "string" }, description: "opcionais (ar, multimídia...)" } } },
+    run: async (a, ctx) => {
+      const brand = str(a.brand, 60), model = str(a.model, 80);
+      if (!brand || !model) return fail("Informe marca e modelo.");
+      const ym = num(a.year_model), yf = num(a.year_manufacture);
+      const row: Json = {
+        team_id: ctx.teamId, owner_id: ctx.userId, brand, model, version: str(a.version, 120),
+        year_model: ym ?? yf, year_manufacture: yf ?? ym, km: num(a.km), color: str(a.color, 40), fuel: str(a.fuel, 40),
+        transmission: str(a.transmission, 20), body_type: str(a.body_type, 20), engine: str(a.engine, 40),
+        plate: str(a.plate, 10)?.toUpperCase() ?? null, sale_price: num(a.sale_price), purchase_price: num(a.purchase_price),
+        store: str(a.store, 60), stock_code: str(a.stock_code, 20)?.toUpperCase() ?? null, description: str(a.description, 2000),
+      };
+      const { data, error } = await ctx.supabase.from("vehicles").insert(row).select("*").single();
+      if (error || !data) return fail(/duplicate|stock_code/i.test(error?.message ?? "") ? "Já existe um veículo com esse código." : "Não foi possível cadastrar o veículo.");
+      const feats = Array.isArray(a.features) ? a.features.map((f) => str(f, 80)).filter(Boolean) : [];
+      if (feats.length) await ctx.supabase.from("vehicle_features").insert(feats.map((name) => ({ team_id: ctx.teamId, vehicle_id: data.id, name })));
+      return { ok: true, veiculo: vehicleBrief(data), link: `/estoque/${data.id}`, dica: "Fotos: abrir o link e usar 'Adicionar fotos'." };
+    },
+  },
+  {
+    name: "share_vehicle",
+    description: "Gera o link da ficha (fotos + dados) para enviar ao cliente, com preço personalizado (ex.: preço de tabela + margem). Devolve url e texto pronto para WhatsApp.",
+    input_schema: { type: "object", properties: {
+      vehicle_id: { type: "string" }, stock_code: { type: "string" }, lead_id: { type: "string" }, lead_name: { type: "string" },
+      price: { type: "number", description: "preço final para o cliente" }, markup: { type: "number", description: "valor a somar ao preço de tabela" },
+      show_price: { type: "boolean" }, message: { type: "string" }, days: { type: "integer" } } },
+    run: async (a, ctx) => {
+      let vq = ctx.supabase.from("vehicles").select("id,brand,model,year_model,sale_price,status,stock_code");
+      const vid = uuid(a.vehicle_id);
+      if (vid) vq = vq.eq("id", vid); else if (str(a.stock_code)) vq = vq.ilike("stock_code", str(a.stock_code, 20)!); else return fail("Informe o veículo (código ou id).");
+      const { data: v } = await vq.maybeSingle();
+      if (!v) return fail("Veículo não encontrado.");
+      if (v.status === "vendido") return fail("Veículo já vendido.");
+      let leadId: string | null = null, lead: Json | null = null;
+      if (a.lead_id || a.lead_name) {
+        const r = await resolveLead(ctx, a);
+        if (!("id" in r) || typeof r.id !== "string") return r as Json;
+        leadId = r.id;
+        const { data } = await ctx.supabase.from("leads").select("name,phone").eq("id", leadId).maybeSingle();
+        lead = data;
+      }
+      const base = v.sale_price === null ? null : Number(v.sale_price);
+      const price = num(a.price) ?? (base !== null && num(a.markup) !== null ? base + num(a.markup)! : base);
+      const days = Math.min(90, Math.max(1, Number(a.days) || 15));
+      const show = a.show_price !== false && price !== null;
+      const { data: share, error } = await ctx.supabase.from("vehicle_shares").insert({
+        team_id: ctx.teamId, owner_id: ctx.userId, vehicle_id: v.id, lead_id: leadId, price, base_price: base, show_price: show,
+        message: str(a.message, 1000), expires_at: new Date(Date.now() + days * 86400000).toISOString(),
+      }).select("token").single();
+      if (error || !share) return fail("Não foi possível gerar o link.");
+      if (leadId) await ctx.supabase.from("leads").update({ vehicle_id: v.id }).eq("id", leadId).is("vehicle_id", null);
+      const url = `${ctx.origin}/v/${share.token}`;
+      const first = lead?.name ? String(lead.name).split(" ")[0] : "";
+      const preco = show ? ` por ${price!.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 })}` : "";
+      const texto = `${first ? `Olá, ${first}! ` : "Olá! "}Separei as fotos e a ficha completa do ${v.brand} ${v.model} ${v.year_model ?? ""}${preco} para você: ${url}`.replace(/\s+/g, " ");
+      const phone = typeof lead?.phone === "string" ? lead.phone.replace(/\D/g, "") : "";
+      return { ok: true, url, preco_cliente: price, preco_tabela: base, validade_dias: days, texto_whatsapp: texto,
+        whatsapp: phone ? `https://wa.me/${phone.length <= 11 ? "55" + phone : phone}?text=${encodeURIComponent(texto)}` : null };
+    },
+  },
   {
     name: "search_leads",
     description: "Busca leads (negociações) por nome, telefone ou interesse. Por padrão só os em aberto.",

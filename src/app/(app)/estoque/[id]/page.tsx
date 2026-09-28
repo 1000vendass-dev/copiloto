@@ -11,6 +11,10 @@ import { ImageManager } from "@/features/inventory/components/image-manager";
 import { DeleteVehicleButton, VehicleStatusControl } from "@/features/inventory/components/status-control";
 import { bodyLabel, statusClass, statusLabel, transmissionLabel } from "@/features/inventory/constants";
 import { getVehicle } from "@/features/inventory/queries";
+import { siteOrigin } from "@/features/shares/actions";
+import { SharePanel, type ShareRow } from "@/features/shares/share-panel";
+import { OPEN_STAGES } from "@/features/crm/constants";
+import { createClient } from "@/lib/supabase/server";
 import { getSession } from "@/lib/auth";
 import { formatBRL, formatDate } from "@/lib/utils";
 
@@ -22,6 +26,13 @@ export default async function VeiculoPage({ params }: { params: Promise<{ id: st
   const [session, data] = await Promise.all([getSession(), getVehicle(id)]);
   if (!data) notFound();
   const { vehicle: v, images, features, leads } = data;
+  const supabase = await createClient();
+  const [{ data: shareRows }, { data: openLeads }, origin] = await Promise.all([
+    supabase.from("vehicle_shares").select("id,token,price,show_price,views,last_viewed_at,expires_at,revoked,created_at,leads(name)")
+      .eq("vehicle_id", v.id).order("created_at", { ascending: false }).limit(10),
+    supabase.from("leads").select("id,name").in("stage", OPEN_STAGES).order("name").limit(500),
+    siteOrigin(),
+  ]);
 
   const specs: [string, React.ReactNode][] = [
     ["Ano", v.year_manufacture && v.year_model ? `${v.year_manufacture}/${v.year_model}` : v.year_model],
@@ -65,6 +76,9 @@ export default async function VeiculoPage({ params }: { params: Promise<{ id: st
               ))}
             </dl>
           </Card>
+          {v.status !== "vendido" ? (
+            <Card><SharePanel vehicleId={v.id} basePrice={v.sale_price} leads={openLeads ?? []} shares={(shareRows ?? []) as unknown as ShareRow[]} origin={origin} /></Card>
+          ) : null}
           <Card>
             <CardTitle className="mb-3">Leads interessados</CardTitle>
             {leads.length ? (

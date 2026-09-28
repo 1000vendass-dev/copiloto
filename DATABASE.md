@@ -18,6 +18,7 @@ Projeto Supabase **Copiloto** (`wripjgkmgtdmzfclsoyq`, região sa-east-1). Migra
 | Rotina | `tasks` | tarefas / follow-ups |
 | | `appointments` | visitas, test-drives, ligações, entregas |
 | Negociação | `proposals` | valores, entrada, troca, financiamento, parcelas, status; `total` gerado |
+| | `vehicle_shares` | links públicos da ficha: token, preço para o cliente, preço base, mensagem, validade, visualizações |
 | Organização | `tags`, `lead_tags`, `customer_tags`, `settings` | |
 | IA | `ai_memory` | fatos duráveis que a IA deve lembrar |
 | | `ai_action_logs` | auditoria de toda ação da IA (somente inserção/leitura) |
@@ -58,6 +59,9 @@ anônimo não vê nada; vendedor não exclui lead de outro nem altera configura�
 ## Funções
 
 - `dashboard_metrics(team)` — métricas do painel (SECURITY INVOKER, respeita RLS).
+- `get_shared_vehicle(token)` — única porta pública (anon): devolve só campos seguros da ficha (sem custo, placa,
+  código) com o preço do link, conta visualizações e grava "Cliente abriu a ficha" na timeline. Token inválido,
+  revogado ou vencido → nada. Fotos: policy anon em `vehicle-images` só para veículos com link ativo.
 
 ## Dados
 

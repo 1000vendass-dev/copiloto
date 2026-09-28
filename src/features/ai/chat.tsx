@@ -10,6 +10,7 @@ type Action = { tool: string; ok: boolean; status: string; summary: string };
 type Msg = { id?: string; role: "user" | "assistant"; content: string; meta?: { actions?: Action[] }; pending?: boolean; error?: boolean };
 
 const TOOL_LABEL: Record<string, string> = {
+  registrar_atendimento: "Registrou atendimento", create_vehicle: "Cadastrou veículo", share_vehicle: "Gerou link da ficha",
   search_leads: "Buscou leads", get_lead: "Leu o lead", create_lead: "Criou lead", update_lead: "Atualizou lead",
   search_customers: "Buscou clientes", get_customer: "Leu cliente", create_customer: "Criou cliente", update_customer: "Atualizou cliente",
   search_vehicles: "Consultou estoque", get_vehicle: "Leu veículo", update_vehicle: "Alterou veículo",
@@ -26,7 +27,23 @@ const SUGGESTIONS = [
   "O que tenho na agenda hoje?",
   "Falei com João hoje, ele quer um Onix até 70 mil e pretende trocar em outubro",
   "Me lembra de falar com João amanhã às 10h",
+  "Manda a ficha do V036 pro João com 2 mil de gordura",
 ];
+
+/** Links https clicáveis (ficha do cliente, WhatsApp). */
+function Linked({ text }: { text: string }) {
+  return (
+    <span>
+      {text.split(/(https:\/\/[^\s)]+)/g).map((p, i) =>
+        p.startsWith("https://") ? (
+          <a key={i} href={p} target="_blank" rel="noopener noreferrer" className="break-all font-medium text-brand-600 underline">
+            {p.includes("wa.me") ? "Abrir no WhatsApp" : p}
+          </a>
+        ) : p,
+      )}
+    </span>
+  );
+}
 
 /** Negrito **x** e quebras de linha; sem HTML arbitrário. */
 function Rich({ text }: { text: string }) {
@@ -35,7 +52,7 @@ function Rich({ text }: { text: string }) {
       {text.split("\n").map((line, i) => (
         <p key={i} className={cn("min-h-[1em]", line.startsWith("- ") || line.startsWith("• ") ? "pl-3" : "")}>
           {line.split(/(\*\*[^*]+\*\*)/g).map((part, j) =>
-            part.startsWith("**") && part.endsWith("**") ? <strong key={j}>{part.slice(2, -2)}</strong> : <span key={j}>{part}</span>,
+            part.startsWith("**") && part.endsWith("**") ? <strong key={j}>{part.slice(2, -2)}</strong> : <Linked key={j} text={part} />,
           )}
         </p>
       ))}

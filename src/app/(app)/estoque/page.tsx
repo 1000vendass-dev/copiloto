@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Plus, Search, SlidersHorizontal } from "lucide-react";
+import { Plus, Search, SlidersHorizontal, Upload } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Alert, EmptyState } from "@/components/ui/card";
@@ -26,7 +26,10 @@ export default async function EstoquePage({ searchParams }: { searchParams: Prom
   return (
     <>
       <PageHeader title="Estoque" subtitle={`${count} ${count === 1 ? "veículo" : "veículos"}`}
-        actions={<Link href="/estoque/novo"><Button><Plus className="h-4 w-4" />Novo veículo</Button></Link>} />
+        actions={<>
+          <Link href="/estoque/importar"><Button variant="outline"><Upload className="h-4 w-4" />Importar</Button></Link>
+          <Link href="/estoque/novo"><Button><Plus className="h-4 w-4" />Novo veículo</Button></Link>
+        </>} />
 
       <form action="/estoque" className="mb-4 space-y-3">
         <div className="flex gap-2">

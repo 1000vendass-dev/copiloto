@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sem conexão · Copiloto</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { margin: 0; min-height: 100dvh; display: grid; place-items: center; font-family: system-ui, sans-serif; background: #f6f7f9; color: #111827; text-align: center; padding: 16px; }
+  @media (prefers-color-scheme: dark) { body { background: #0b0f16; color: #e8ecf2; } }
+  button { margin-top: 16px; background: #2563eb; color: #fff; border: 0; border-radius: 10px; padding: 12px 20px; font-size: 16px; }
+</style>
+</head>
+<body>
+  <main>
+    <img src="/icons/icon-192.png" width="72" height="72" alt="">
+    <h1>Sem conexão</h1>
+    <p>O Copiloto precisa de internet para mostrar dados atualizados.<br>Nada que você registrou foi perdido.</p>
+    <button onclick="location.reload()">Tentar de novo</button>
+  </main>
+</body>
+</html>

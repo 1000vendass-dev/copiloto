@@ -3,6 +3,7 @@ import { ChevronRight, UserCircle } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 import { NAV_ITEMS } from "@/components/layout/nav-config";
+import { InstallApp } from "@/components/layout/pwa";
 
 export default function MaisPage() {
   const items = [...NAV_ITEMS.filter((i) => !i.mobile), { href: "/user", label: "Meu perfil", icon: UserCircle }];
@@ -17,6 +18,10 @@ export default function MaisPage() {
             <ChevronRight className="h-4 w-4 text-fg-muted" aria-hidden />
           </Link>
         ))}
+      </Card>
+      <Card className="mt-4 space-y-2">
+        <h2 className="font-semibold">Usar como aplicativo</h2>
+        <InstallApp />
       </Card>
     </>
   );

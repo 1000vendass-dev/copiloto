@@ -12,7 +12,7 @@ import { toLocalInput } from "@/features/crm/components/lead-form";
 import { VehiclePicker } from "@/features/inventory/vehicle-picker";
 import { formatTime } from "@/lib/dates";
 import { cn } from "@/lib/utils";
-import { deleteAppointment, saveAppointment, setAppointmentStatus, type ActionResult } from "../actions";
+import { deleteAppointment, saveAppointment, setAppointmentStatus } from "../actions";
 import type { AppointmentRow } from "../queries";
 import type { LeadOption } from "./task-ui";
 

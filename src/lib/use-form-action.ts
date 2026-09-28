@@ -2,7 +2,7 @@
 
 import { useActionState, useCallback, useTransition, type FormEvent } from "react";
 
-type FormAction<S> = (prev: S | undefined, fd: FormData) => Promise<S>;
+type FormAction<S> = (prev: S | undefined, fd: FormData) => Promise<S | undefined>;
 
 /**
  * Como useActionState, mas NÃO limpa o formulário após enviar (o React 19 limpa

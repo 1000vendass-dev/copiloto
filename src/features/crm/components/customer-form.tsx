@@ -6,7 +6,7 @@ import { Alert } from "@/components/ui/card";
 import { ConfirmButton } from "@/components/ui/confirm-button";
 import { Field, Input, Textarea } from "@/components/ui/input";
 import type { Customer } from "@/types/db";
-import { createCustomer, deleteCustomer, updateCustomer, type ActionResult } from "../actions";
+import { createCustomer, deleteCustomer, updateCustomer } from "../actions";
 
 export function CustomerForm({ customer }: { customer?: Customer }) {
   const [state, onSubmit, pending] = useFormAction(customer ? updateCustomer : createCustomer);

@@ -8,11 +8,9 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "vercel-build": "mkdir -p public && (echo \"== LINT\"; npm run lint; echo \"== TYPECHECK\"; npm run typecheck; echo \"== FIM\") > public/diag.txt 2>&1; next build"
+    "vercel-build": "npm run lint && npm run typecheck && next build"
   },
-  "engines": {
-    "node": ">=20"
-  },
+  "engines": { "node": ">=20" },
   "dependencies": {
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.57.0",

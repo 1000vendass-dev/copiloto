@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/card";
 import { Field, Input } from "@/components/ui/input";
-import { requestPasswordReset, signIn, signUp, updatePassword, type FormState } from "./actions";
+import { requestPasswordReset, signIn, signUp, updatePassword } from "./actions";
 
 type Mode = "login" | "cadastro" | "recuperar" | "nova-senha";
 

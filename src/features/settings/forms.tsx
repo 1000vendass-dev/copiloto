@@ -4,7 +4,7 @@ import { useFormAction } from "@/lib/use-form-action";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/card";
 import { Field, Input } from "@/components/ui/input";
-import { updateProfile, updateTeamName, type FormState } from "./actions";
+import { updateProfile, updateTeamName } from "./actions";
 
 export function ProfileForm({ fullName, phone, email }: { fullName: string; phone: string; email: string }) {
   const [state, onSubmit, pending] = useFormAction(updateProfile);

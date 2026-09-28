@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/card";
 import { Field, Input, Select, Textarea } from "@/components/ui/input";
 import type { Vehicle } from "@/types/db";
-import { createVehicle, updateVehicle, type ActionResult } from "../actions";
+import { createVehicle, updateVehicle } from "../actions";
 import { BODY_TYPES, FUELS, TRANSMISSIONS, VEHICLE_STATUS } from "../constants";
 
 export function VehicleForm({ vehicle, features = [], stores = [] }: { vehicle?: Vehicle; features?: string[]; stores?: string[] }) {

@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 
-const PUBLIC_PATHS = ["/diag.txt", "/login", "/cadastro", "/recuperar-senha", "/auth"];
+const PUBLIC_PATHS = ["/login", "/cadastro", "/recuperar-senha", "/auth"];
 // /sem-equipe exige login mas não equipe (tratado em getSession)
 
 export async function updateSession(request: NextRequest) {

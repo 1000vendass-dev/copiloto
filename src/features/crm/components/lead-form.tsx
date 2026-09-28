@@ -6,7 +6,7 @@ import { Alert } from "@/components/ui/card";
 import { Field, Input, Select } from "@/components/ui/input";
 import { VehiclePicker } from "@/features/inventory/vehicle-picker";
 import type { Lead } from "@/types/db";
-import { createLead, updateLead, type ActionResult } from "../actions";
+import { createLead, updateLead } from "../actions";
 import { SOURCES, STAGES, TEMPERATURES } from "../constants";
 
 /** ISO → valor de <input type="datetime-local"> no fuso de São Paulo */

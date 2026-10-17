@@ -81,7 +81,14 @@ export async function updatePassword(_: FormState, formData: FormData): Promise<
 
   const supabase = await createClient();
   const { error } = await supabase.auth.updateUser({ password: password.data });
-  if (error) return { error: "Link expirado ou inválido. Solicite outro." };
+  if (error) {
+    const code = (error as { code?: string }).code;
+    if (code === "same_password") return { error: "A nova senha precisa ser diferente da senha atual." };
+    if (code === "weak_password") return { error: "Senha fraca ou já vazada em outros sites. Use outra, com mais caracteres." };
+    if (code === "reauthentication_needed") return { error: "Por segurança, peça um novo link de recuperação e use-o logo ao receber." };
+    if (/session/i.test(error.message)) return { error: "Link expirado ou inválido. Solicite outro." };
+    return { error: `Não foi possível trocar a senha (${error.message}).` };
+  }
   redirect("/");
 }
 

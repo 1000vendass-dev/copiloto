@@ -1,0 +1,31 @@
+﻿services:
+  waha:
+    image: devlikeapro/waha:latest-2026.7.2
+    container_name: copiloto-waha
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3031:3000"
+    environment:
+      WAHA_API_KEY: ${WAHA_API_KEY}
+      WHATSAPP_DEFAULT_ENGINE: NOWEB
+      WHATSAPP_RESTART_ALL_SESSIONS: "True"
+      WAHA_DASHBOARD_ENABLED: "true"
+      WAHA_DASHBOARD_USERNAME: admin
+      WAHA_DASHBOARD_PASSWORD: ${WAHA_API_KEY}
+    volumes:
+      - waha-data:/app/.sessions
+      - waha-media:/app/.media
+    mem_limit: 700m
+    networks: [copiloto-net]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:3000/ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+volumes:
+  waha-data:
+  waha-media:
+networks:
+  copiloto-net:
+    external: true

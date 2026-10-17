@@ -12,6 +12,8 @@ import {
 import { Timeline } from "@/features/crm/components/timeline";
 import { getLead } from "@/features/crm/queries";
 import { statusLabel } from "@/features/inventory/constants";
+import { getLeadWhatsApp } from "@/features/whatsapp/queries";
+import { WhatsAppChat } from "@/features/whatsapp/whatsapp-chat";
 import { getSession } from "@/lib/auth";
 import { formatBRL, formatDateTime } from "@/lib/utils";
 
@@ -25,7 +27,7 @@ function waLink(phone: string) {
 export default async function LeadPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
-  const [session, data] = await Promise.all([getSession(), getLead(id)]);
+  const [session, data, whatsapp] = await Promise.all([getSession(), getLead(id), getLeadWhatsApp(id)]);
   if (!data) notFound();
   const { lead, activities, notes, tasks, tags, allTags, customer, vehicle } = data;
 
@@ -99,6 +101,12 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
         </div>
 
         <div className="space-y-4 lg:col-span-2">
+          {whatsapp.enabled ? (
+            <Card>
+              <CardTitle className="mb-3">Conversa no WhatsApp</CardTitle>
+              <WhatsAppChat leadId={lead.id} messages={whatsapp.messages} drafts={whatsapp.drafts} />
+            </Card>
+          ) : null}
           <Card><CardTitle className="mb-3">Registrar contato</CardTitle><ContactForm leadId={lead.id} customerId={lead.customer_id ?? undefined} /></Card>
           <Card>
             <CardTitle className="mb-3">Follow-ups e tarefas</CardTitle>

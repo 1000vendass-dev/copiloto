@@ -1,0 +1,28 @@
+services:
+  copiloto:
+    build:
+      context: ./src
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}
+    image: copiloto-app:local
+    container_name: copiloto-app
+    restart: unless-stopped
+    env_file:
+      - .env
+      - .secrets.env
+    mem_limit: 600m
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    ports:
+      - "127.0.0.1:3040:3000"   # só a própria VPS enxerga; nada na internet
+    networks: [copiloto-net]     # rede própria, sem ligação com o CRM
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/login"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+networks:
+  copiloto-net:
+    external: true

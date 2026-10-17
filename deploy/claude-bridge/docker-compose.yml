@@ -1,0 +1,24 @@
+services:
+  claude:
+    build: .
+    image: copiloto-claude:local
+    container_name: copiloto-claude
+    restart: unless-stopped
+    env_file: [.env]
+    mem_limit: 700m
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    networks: [copiloto-net]     # rede própria do Copiloto; sem ligação com o CRM; sem porta aberta na VPS
+    volumes:
+      - claude-home:/home/claude  # guarda o login da assinatura
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+volumes:
+  claude-home:
+networks:
+  copiloto-net:
+    external: true

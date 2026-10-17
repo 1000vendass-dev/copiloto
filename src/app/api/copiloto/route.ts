@@ -25,7 +25,7 @@ export async function GET() {
   if (!c) return NextResponse.json({ error: "Sessão expirada. Entre novamente." }, { status: 401 });
   const { data } = await c.supabase.from("ai_messages").select("id,role,content,meta,created_at")
     .eq("user_id", c.userId).order("created_at", { ascending: false }).limit(40);
-  return NextResponse.json({ messages: (data ?? []).reverse(), configured: Boolean(process.env.ANTHROPIC_API_KEY) });
+  return NextResponse.json({ messages: (data ?? []).reverse(), configured: Boolean(process.env.COPILOTO_BRIDGE_URL || process.env.ANTHROPIC_API_KEY) });
 }
 
 export async function DELETE() {
@@ -45,9 +45,10 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: "Mensagem vazia ou longa demais." }, { status: 400 });
   const text = parsed.data.message;
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    return NextResponse.json({ error: "O Copiloto ainda não está ativado: falta configurar a chave da IA (ANTHROPIC_API_KEY) na Vercel." }, { status: 503 });
+  // Com a ponte do Claude Code configurada, a API paga nunca é usada (apiKey vazia só preenche o tipo).
+  const apiKey = process.env.ANTHROPIC_API_KEY ?? "";
+  if (!apiKey && !process.env.COPILOTO_BRIDGE_URL) {
+    return NextResponse.json({ error: "O Copiloto ainda não está ativado: falta configurar a IA (COPILOTO_BRIDGE_URL ou ANTHROPIC_API_KEY)." }, { status: 503 });
   }
 
   // histórico curto (só texto): o contexto de negócio vem do banco via ferramentas, não do chat

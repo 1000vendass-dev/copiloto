@@ -1,5 +1,6 @@
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
+import { configuredAppUrl } from "@/lib/site-url";
 import { createClient } from "@/lib/supabase/server";
 
 /** Recebe o link do e-mail (confirmação de cadastro / recuperação de senha). */
@@ -23,5 +24,5 @@ export async function GET(request: NextRequest) {
   }
 
   const target = ok ? next : "/login?erro=link";
-  return NextResponse.redirect(new URL(target, request.url));
+  return NextResponse.redirect(new URL(target, configuredAppUrl() ?? request.url));
 }

@@ -1,9 +1,9 @@
 "use server";
 
-import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getSession } from "@/lib/auth";
+import { getSiteOrigin } from "@/lib/site-url";
 import { createClient } from "@/lib/supabase/server";
 
 export type ShareResult = { ok: boolean; error?: string; url?: string; phone?: string | null; leadName?: string | null; text?: string };
@@ -18,9 +18,7 @@ const schema = z.object({
 });
 
 export async function siteOrigin() {
-  const h = await headers();
-  const host = h.get("x-forwarded-host") ?? h.get("host");
-  return `${h.get("x-forwarded-proto") ?? "https"}://${host}`;
+  return getSiteOrigin();
 }
 
 const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });

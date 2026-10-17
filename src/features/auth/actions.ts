@@ -1,18 +1,13 @@
 "use server";
 
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { getSiteOrigin } from "@/lib/site-url";
 import { createClient } from "@/lib/supabase/server";
 
 export type FormState = { error?: string; success?: string } | undefined;
 
-async function origin() {
-  const h = await headers();
-  const host = h.get("x-forwarded-host") ?? h.get("host");
-  const proto = h.get("x-forwarded-proto") ?? "https";
-  return `${proto}://${host}`;
-}
+const origin = getSiteOrigin;
 
 function safeNext(next: FormDataEntryValue | null) {
   const v = typeof next === "string" ? next : "";

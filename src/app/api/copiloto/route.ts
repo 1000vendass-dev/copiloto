@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { CopilotoUnavailable, isConfirmation, runCopiloto, systemPrompt, type ChatMessage } from "@/features/ai/agent";
 import { listStores } from "@/features/inventory/queries";
+import { getSiteOrigin } from "@/lib/site-url";
 import { createClient } from "@/lib/supabase/server";
 
 export const maxDuration = 60;
@@ -73,7 +74,7 @@ export async function POST(req: NextRequest) {
       system: systemPrompt({ userName: c.userName, teamName: c.teamName, stores, memories: (mems ?? []).map((m) => m.content) }),
       history: clean,
       userText: text,
-      ctx: { supabase: c.supabase, userId: c.userId, teamId: c.teamId, userConfirmed: isConfirmation(text), origin: req.nextUrl.origin },
+      ctx: { supabase: c.supabase, userId: c.userId, teamId: c.teamId, userConfirmed: isConfirmation(text), origin: await getSiteOrigin() },
     });
     const { data: saved } = await c.supabase.from("ai_messages")
       .insert({ team_id: c.teamId, user_id: c.userId, role: "assistant", content: reply, meta: { actions, usage } })

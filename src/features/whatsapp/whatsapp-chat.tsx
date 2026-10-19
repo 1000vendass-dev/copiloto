@@ -45,7 +45,7 @@ function Draft({ draft, leadId }: { draft: WaDraft; leadId: string }) {
 
 /**
  * Conversa em tela cheia, como no WhatsApp: as mensagens ocupam o espaço do pai (que precisa ser flex-col com
- * altura definida) e a caixa de texto fica presa embaixo. O `pr-16` da lista deixa espaço para os botões flutuantes.
+ * altura definida) e a caixa de texto fica presa embaixo. Os botões flutuantes ficam por cima das mensagens; o `pb-20` só deixa a última mensagem rolar para cima do botão +.
  */
 export function WhatsAppChat({ leadId, messages, drafts, enabled = true }: { leadId: string; messages: WaMessage[]; drafts: WaDraft[]; enabled?: boolean }) {
   const router = useRouter();
@@ -73,7 +73,7 @@ export function WhatsAppChat({ leadId, messages, drafts, enabled = true }: { lea
   let lastDay = "";
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div ref={listRef} className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain px-3 py-3 pr-16">
+      <div ref={listRef} className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain px-3 pt-3 pb-20">
         {!enabled ? (
           <p className="mx-auto mt-8 max-w-xs text-center text-sm text-fg-muted">WhatsApp do Copiloto não está conectado nesta equipe.</p>
         ) : messages.length === 0 ? (

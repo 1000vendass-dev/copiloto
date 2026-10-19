@@ -8,6 +8,7 @@ import { formatTime, labelDay, ymdOf } from "@/lib/dates";
 import { cn } from "@/lib/utils";
 import { discardDraft, markLeadConversationRead, sendWhatsApp, sendWhatsAppVoice } from "./actions";
 import type { WaDraft, WaMessage } from "./queries";
+import { MessageContent } from "./media-bubble";
 import { fmtSeconds, useVoiceRecorder } from "./voice-recorder";
 
 const textareaCls = "w-full resize-none rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand";
@@ -100,9 +101,7 @@ export function WhatsAppChat({ leadId, messages, drafts, enabled = true }: { lea
               {sep ? <div className="my-3 flex justify-center"><span className="glass rounded-full px-3 py-1 text-[11px] font-semibold text-fg-muted">{labelDay(day)}</span></div> : null}
               <div className={cn("flex", m.direction === "saida" ? "justify-end" : "justify-start")}>
                 <div className={cn("max-w-[85%] rounded-3xl px-3.5 py-2 text-[15px] leading-snug shadow-sm", m.direction === "saida" ? "rounded-br-md bg-brand text-white" : "glass rounded-bl-md")}>
-                  {m.type === "audio" && m.media_path
-                    ? <audio controls preload="none" src={`/api/whatsapp/media/${m.id}`} className="my-1 h-10 w-60 max-w-full" aria-label="Áudio" />
-                    : <p className="whitespace-pre-wrap break-words">{m.body}</p>}
+                  <MessageContent m={m} />
                   <div className={cn("text-right text-[10px]", m.direction === "saida" ? "text-white/70" : "text-fg-muted")}>{formatTime(m.sent_at)}</div>
                 </div>
               </div>

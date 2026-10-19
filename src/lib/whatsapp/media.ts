@@ -3,13 +3,17 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
- * Áudios do WhatsApp: o arquivo vai para o Storage (bucket privado) para o vendedor ouvir no card,
- * e o texto (Whisper na VPS) vai para whatsapp_messages.transcript, só para a IA.
+ * Mídia do WhatsApp: o arquivo vai para o Storage (bucket privado) para o vendedor ver/ouvir no card.
+ * Áudio também vira texto (Whisper na VPS) em whatsapp_messages.transcript, só para a IA.
  */
 
 export const MEDIA_BUCKET = "whatsapp-media";
 
-const EXT: Record<string, string> = { "audio/ogg": "ogg", "audio/webm": "webm", "audio/mp4": "m4a", "audio/mpeg": "mp3", "audio/aac": "aac", "audio/wav": "wav" };
+const EXT: Record<string, string> = {
+  "audio/ogg": "ogg", "audio/webm": "webm", "audio/mp4": "m4a", "audio/mpeg": "mp3", "audio/aac": "aac", "audio/wav": "wav",
+  "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif", "image/heic": "heic",
+  "video/mp4": "mp4", "video/3gpp": "3gp", "application/pdf": "pdf",
+};
 const baseType = (mimetype: string) => mimetype.split(";")[0].trim().toLowerCase();
 
 /** Fala → texto. Devolve null se o serviço estiver fora (o áudio continua salvo; dá para transcrever depois). */
@@ -26,8 +30,8 @@ export async function transcribeAudio(bytes: Uint8Array, mimetype: string): Prom
 
 type Msg = { id: string; teamId: string };
 
-/** Guarda o arquivo no Storage e marca media_path (o player do card passa a funcionar). Nunca lança. */
-export async function saveAudio(admin: SupabaseClient, msg: Msg, bytes: Uint8Array, mimetype: string): Promise<void> {
+/** Guarda o arquivo (áudio, foto, vídeo, documento) no Storage e marca media_path. Nunca lança. */
+export async function saveMedia(admin: SupabaseClient, msg: Msg, bytes: Uint8Array, mimetype: string): Promise<void> {
   const type = baseType(mimetype);
   try {
     const path = `${msg.teamId}/${msg.id}.${EXT[type] ?? "bin"}`;
@@ -35,9 +39,11 @@ export async function saveAudio(admin: SupabaseClient, msg: Msg, bytes: Uint8Arr
     if (up.error) throw new Error(`Storage: ${up.error.message}`);
     await admin.from("whatsapp_messages").update({ media_path: path }).eq("id", msg.id);
   } catch (e) {
-    console.error("[whatsapp/audio] salvar:", e instanceof Error ? e.message : e);
+    console.error("[whatsapp/media] salvar:", e instanceof Error ? e.message : e);
   }
 }
+
+export const saveAudio = saveMedia;
 
 /** Transcreve e grava em transcript (só para a IA). Nunca lança. */
 export async function transcribeMessage(admin: SupabaseClient, msg: Msg, bytes: Uint8Array, mimetype: string): Promise<void> {
@@ -51,6 +57,6 @@ export async function transcribeMessage(admin: SupabaseClient, msg: Msg, bytes: 
 
 /** Guarda e transcreve (webhook, em segundo plano). */
 export async function processAudio(admin: SupabaseClient, msg: Msg, bytes: Uint8Array, mimetype: string): Promise<void> {
-  await saveAudio(admin, msg, bytes, mimetype);
+  await saveMedia(admin, msg, bytes, mimetype);
   await transcribeMessage(admin, msg, bytes, mimetype);
 }

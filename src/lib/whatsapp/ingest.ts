@@ -5,7 +5,7 @@ import { OPEN_STAGES } from "@/features/crm/constants";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { onlyDigits, sameNumber, shortId, toWaId } from "./phone";
 import { pushToTeam } from "@/lib/push";
-import { processAudio } from "./media";
+import { processAudio, saveMedia } from "./media";
 import { downloadWahaFile, resolveLid, wahaSession } from "./waha";
 
 type Admin = SupabaseClient;
@@ -131,6 +131,20 @@ const MESSAGE_KINDS: [string, string, string][] = [
   ["imageMessage", "imagem", "imagem"], ["audioMessage", "audio", "áudio"], ["videoMessage", "video", "vídeo"],
   ["documentMessage", "documento", "documento"], ["stickerMessage", "imagem", "figurinha"], ["locationMessage", "localizacao", "localização"],
 ];
+/** Embrulhos em que o WhatsApp manda a mensagem de verdade (visualização única, temporária, documento com legenda). */
+const WRAPPERS = ["viewOnceMessage", "viewOnceMessageV2", "viewOnceMessageV2Extension", "ephemeralMessage", "documentWithCaptionMessage"];
+const MEDIA_TYPES = ["audio", "imagem", "video", "documento"];
+
+function findKind(msg: Json | null, depth = 0): [string, string, string] | null {
+  if (!msg || depth > 3) return null;
+  const kind = MESSAGE_KINDS.find(([k]) => k in msg);
+  if (kind) return kind;
+  for (const w of WRAPPERS) {
+    const inner = findKind(asRec(asRec(msg[w])?.message), depth + 1);
+    if (inner) return inner;
+  }
+  return null;
+}
 
 /** Processa um evento de mensagem do WAHA. Devolve um rótulo do que aconteceu (para log/teste). */
 export async function handleWahaEvent(admin: Admin, evt: Json): Promise<string> {
@@ -152,14 +166,18 @@ export async function handleWahaEvent(admin: Admin, evt: Json): Promise<string> 
   const waId = onlyDigits(chat.split("@")[0]);
   if (waId.length < 8) return "bad_number";
 
-  const msg = asRec(data?.message);
   let type = "texto";
   let label = "";
-  if (msg) {
-    const kind = MESSAGE_KINDS.find(([k]) => k in msg);
-    if (kind) [, type, label] = kind;
+  const kind = findKind(asRec(data?.message));
+  if (kind) [, type, label] = kind;
+  const media = asRec(p.media);
+  const mediaUrl = asStr(media?.url);
+  if (type === "texto" && p.hasMedia === true) {
+    // formato que não reconhecemos (ex.: visualização única): decide pelo tipo do arquivo
+    const mime = asStr(media?.mimetype) ?? "";
+    [type, label] = mime.startsWith("image/") ? ["imagem", "imagem"] : mime.startsWith("video/") ? ["video", "vídeo"]
+      : mime.startsWith("audio/") ? ["audio", "áudio"] : mime ? ["documento", "documento"] : ["outro", "mídia"];
   }
-  if (type === "texto" && p.hasMedia === true) { type = "outro"; label = "mídia"; }
   const body = (asStr(p.body) ?? "") || (label ? `[${label}]` : "");
   if (!body) return "empty"; // reações, mensagens de protocolo etc.
 
@@ -177,15 +195,16 @@ export async function handleWahaEvent(admin: Admin, evt: Json): Promise<string> 
     externalId, direction: fromMe ? "saida" : "entrada", type, body, sentAt,
   });
 
-  // áudio (do cliente ou enviado pelo celular): baixa já, porque o WAHA apaga o arquivo em ~3 min
-  const mediaUrl = asStr(asRec(p.media)?.url);
-  if (type === "audio" && mediaUrl && externalId) {
+  // mídia (do cliente ou enviada pelo celular): baixa já, porque o WAHA apaga o arquivo em ~3 min.
+  // Áudio também é transcrito (só para a IA); foto, vídeo e documento só ficam guardados para ver no card.
+  if (mediaUrl && externalId && MEDIA_TYPES.includes(type)) {
     const { data: row } = await admin.from("whatsapp_messages").select("id,media_path")
       .eq("conversation_id", conv.id).eq("external_id", externalId).maybeSingle();
     if (row && !row.media_path) {
+      const msgRef = { id: row.id, teamId: account.team_id };
       void downloadWahaFile(mediaUrl)
-        .then((f) => processAudio(admin, { id: row.id, teamId: account.team_id }, f.bytes, f.mimetype))
-        .catch((e) => console.error("[whatsapp/audio] baixar:", e instanceof Error ? e.message : e));
+        .then((f) => (type === "audio" ? processAudio(admin, msgRef, f.bytes, f.mimetype) : saveMedia(admin, msgRef, f.bytes, f.mimetype)))
+        .catch((e) => console.error(`[whatsapp/${type}] baixar:`, e instanceof Error ? e.message : e));
     }
   }
 

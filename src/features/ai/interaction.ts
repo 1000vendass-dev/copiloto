@@ -1,6 +1,7 @@
 import "server-only";
 
 import { OPEN_STAGES, stageLabel } from "@/features/crm/constants";
+import { placeholderName } from "@/lib/lead-name";
 import { linkLeadToWhatsApp } from "@/lib/whatsapp/ingest";
 import type { ToolContext } from "./tools";
 
@@ -125,12 +126,14 @@ export async function registerInteraction(a: Json, ctx: ToolContext): Promise<Js
   let created = false;
   if (!lead) {
     if (a.criar_se_nao_existir === false) return { ok: false, error: "Lead não encontrado." };
-    if (!nome) return { ok: false, error: "Informe o nome do cliente para criar o lead." };
-    const { data, error } = await sb.from("leads").insert({ ...patch, name: nome, team_id: ctx.teamId, owner_id: ctx.userId }).select("*").single();
+    // sem nome: cadastra como "Sem nome · telefone"; o nome real entra sozinho depois (WhatsApp ou conversa)
+    if (!nome && tel.length < 8) return { ok: false, error: "Informe o nome ou o telefone do cliente para criar o lead." };
+    const { data, error } = await sb.from("leads").insert({ ...patch, name: nome ?? placeholderName(a.telefone as string), team_id: ctx.teamId, owner_id: ctx.userId }).select("*").single();
     if (error) return { ok: false, error: "Não foi possível criar o lead." };
     lead = data; created = true;
-    await linkLeadToWhatsApp(ctx.teamId, data.id, data.phone);
-    feito.push(`lead ${nome} criado`);
+    const found = await linkLeadToWhatsApp(ctx.teamId, data.id, data.phone);
+    if (found) lead!.name = found;
+    feito.push(`lead ${lead!.name} criado${!nome && !found ? " (sem nome: atualizo quando o cliente se identificar)" : ""}`);
   } else if (Object.keys(patch).length) {
     const { data } = await sb.from("leads").update(patch).eq("id", lead.id as string).select("*").single();
     if (data) lead = data;

@@ -41,7 +41,8 @@ export const optDateTime = z
   });
 
 export const leadSchema = z.object({
-  name: z.string().trim().min(1, "Informe o nome.").max(120),
+  // pode ficar vazio se tiver telefone: vira "Sem nome · telefone" e o nome real entra sozinho depois
+  name: z.string().trim().max(120).default(""),
   phone: optText(30),
   email: optText(160),
   source: optText(60),

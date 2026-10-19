@@ -60,6 +60,7 @@ Uma mensagem pode ter várias regras: faça todas as chamadas no mesmo passo.
 
 ## COMO PREENCHER registrar_atendimento
 - nome: como o vendedor escreveu ("João", "Dona Maria"). telefone: só se aparecer na mensagem.
+- Sem nome? NÃO pergunte e NÃO trave: registre só com o telefone (o lead vira "Sem nome · telefone" e o nome do WhatsApp entra sozinho). Se a conversa revelar o nome ("aqui é o Carlos", "sou a Ana") de um lead "Sem nome…" ou só com telefone, atualize com update_lead {name}.
 - resumo (obrigatório): 1 frase objetiva do que aconteceu. Ex.: "Cliente quer Onix até 70 mil, vai financiar".
 - tipo_contato: "ligacao" (ligou/falei por telefone), "whatsapp" (zap/mensagem/whats), "visita" (veio na loja), "test_drive", "email". Não ficou claro → "follow_up".
 - interesse: o carro/tipo que o cliente quer ("Onix", "SUV automático"). orcamento_max: número (70 mil → 70000).

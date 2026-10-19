@@ -7,6 +7,7 @@ import { parseVehicleQuery, type VehicleQuery } from "@/features/inventory/parse
 import { searchVehicles } from "@/features/inventory/queries";
 import { getCallList } from "@/features/routine/queries";
 import { dayRangeSP, todaySP } from "@/lib/dates";
+import { placeholderName } from "@/lib/lead-name";
 import { linkLeadToWhatsApp } from "@/lib/whatsapp/ingest";
 import { REGISTER_INTERACTION_TOOL, registerInteraction } from "./interaction";
 
@@ -263,7 +264,7 @@ export const TOOLS: Tool[] = [
   {
     name: "create_lead",
     description: "NÃO use para relato de cliente (use registrar_atendimento). Cria um novo lead. Antes, use search_leads para evitar duplicado. O campo notes JÁ vira nota (não chame create_note depois). Se o usuário relatou uma conversa, informe contact_type para registrar o contato na timeline no mesmo passo.",
-    input_schema: { type: "object", required: ["name"], properties: {
+    input_schema: { type: "object", properties: {
       ...leadFields,
       stage: { type: "string", enum: ["novo", "primeiro_contato", "atendimento", "qualificado", "visita", "proposta", "negociacao", "sem_resposta"] },
       notes: { type: "string", description: "contexto da conversa, vira nota" },
@@ -272,11 +273,15 @@ export const TOOLS: Tool[] = [
     } },
     run: async (a, ctx) => {
       const row = pickLead(a);
-      if (!row.name) return fail("Nome é obrigatório.");
+      if (!row.name) {
+        if (!row.phone) return fail("Informe o nome ou o telefone.");
+        row.name = placeholderName(String(row.phone)); // nome real entra sozinho depois
+      }
       const stage = ["novo", "primeiro_contato", "atendimento", "qualificado", "visita", "proposta", "negociacao", "sem_resposta"].includes(String(a.stage)) ? String(a.stage) : undefined;
       const { data, error } = await ctx.supabase.from("leads").insert({ ...row, ...(stage ? { stage } : {}), team_id: ctx.teamId, owner_id: ctx.userId }).select("*").single();
       if (error) return fail("Não foi possível criar o lead.");
-      await linkLeadToWhatsApp(ctx.teamId, data.id, data.phone);
+      const found = await linkLeadToWhatsApp(ctx.teamId, data.id, data.phone);
+      if (found) data.name = found;
       const note = str(a.notes, 2000);
       if (note) await ctx.supabase.from("notes").insert({ team_id: ctx.teamId, owner_id: ctx.userId, lead_id: data.id, content: note });
       const ct = String(a.contact_type ?? "");

@@ -64,3 +64,19 @@ function messageId(data: Record<string, unknown>): string | null {
   ];
   return candidates.find((c): c is string => typeof c === "string" && c.length > 0) ?? null;
 }
+
+/** Nome do perfil do WhatsApp de um número, se o WAHA já conhece (quem já falou com o número do Copiloto). */
+export async function lookupPushName(session: string, waId: string): Promise<string | null> {
+  try {
+    const map = await waha(`/api/${encodeURIComponent(session)}/lids/pn/${encodeURIComponent(`${waId}@c.us`)}`);
+    const ids = [typeof map.lid === "string" ? map.lid : null, `${waId}@c.us`].filter((x): x is string => Boolean(x));
+    for (const id of ids) {
+      const c = await waha(`/api/contacts?contactId=${encodeURIComponent(id)}&session=${encodeURIComponent(session)}`).catch(() => null);
+      const name = c && (typeof c.pushname === "string" ? c.pushname : typeof c.name === "string" ? c.name : null);
+      if (name?.trim()) return name.trim().slice(0, 120);
+    }
+  } catch {
+    // WAHA fora ou número desconhecido: segue sem nome
+  }
+  return null;
+}

@@ -4,9 +4,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { OPEN_STAGES } from "@/features/crm/constants";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { onlyDigits, sameNumber, shortId, toWaId } from "./phone";
+import { isPlaceholderName } from "@/lib/lead-name";
 import { pushToTeam } from "@/lib/push";
 import { processAudio, saveMedia } from "./media";
-import { downloadWahaFile, resolveLid, wahaSession } from "./waha";
+import { downloadWahaFile, lookupPushName, resolveLid, wahaSession } from "./waha";
 
 type Admin = SupabaseClient;
 type Json = Record<string, unknown>;
@@ -71,6 +72,8 @@ export async function ensureConversation(
     await admin.from("whatsapp_contacts").update({ lead_id: leadId }).eq("id", contact.id);
   }
   if (profileName && !contact.profile_name) await admin.from("whatsapp_contacts").update({ profile_name: profileName }).eq("id", contact.id);
+  // lead "Sem nome" (ou só telefone) ganha o nome do perfil do WhatsApp assim que o cliente escreve
+  if (profileName) await fillLeadName(admin, leadId, profileName);
 
   const pickConv = () => admin.from("whatsapp_conversations").select("id,unread_count").eq("account_id", account.id).eq("contact_id", contact!.id).maybeSingle();
   let { data: conv } = await pickConv();
@@ -238,22 +241,36 @@ async function notifyIncoming(admin: Admin, teamId: string, conv: Conversation, 
  * Garante que um lead com telefone tenha contato do WhatsApp (assim a conversa e o "Tipo de contato" aparecem
  * no card). Não rouba número já ligado a outro lead. Falha em silêncio: o lead já foi salvo.
  */
-export async function linkLeadToWhatsApp(teamId: string, leadId: string, phone: string | null | undefined): Promise<void> {
+export async function linkLeadToWhatsApp(teamId: string, leadId: string, phone: string | null | undefined): Promise<string | null> {
   const waId = toWaId(phone);
-  if (!waId) return;
+  if (!waId) return null;
   try {
     const admin = createAdminClient();
     const account = await findAccount(admin, wahaSession(), teamId);
-    if (!account) return;
-    const { data: hit } = await admin.from("whatsapp_contacts").select("id,lead_id").eq("account_id", account.id).eq("wa_id", waId).maybeSingle();
+    if (!account) return null;
+    const { data: hit } = await admin.from("whatsapp_contacts").select("id,lead_id,profile_name").eq("account_id", account.id).eq("wa_id", waId).maybeSingle();
     if (hit) {
       if (!hit.lead_id) await admin.from("whatsapp_contacts").update({ lead_id: leadId }).eq("id", hit.id);
-      return;
+    } else {
+      const { data: linked } = await admin.from("whatsapp_contacts").select("id").eq("lead_id", leadId).limit(1).maybeSingle();
+      if (!linked) await admin.from("whatsapp_contacts").insert({ team_id: account.team_id, account_id: account.id, wa_id: waId, lead_id: leadId });
     }
-    const { data: linked } = await admin.from("whatsapp_contacts").select("id").eq("lead_id", leadId).limit(1).maybeSingle();
-    if (linked) return;
-    await admin.from("whatsapp_contacts").insert({ team_id: account.team_id, account_id: account.id, wa_id: waId, lead_id: leadId });
+    return await fillLeadName(admin, leadId, hit?.profile_name ?? (await lookupPushName(wahaSession(), waId)));
   } catch (e) {
     console.error("[whatsapp/link]", e instanceof Error ? e.message : e);
+    return null;
   }
+}
+
+/**
+ * Se o lead está como "Sem nome" (ou só telefone) e agora sabemos o nome do WhatsApp, troca.
+ * Nunca mexe num nome que o vendedor escreveu. Devolve o nome novo, ou null se não trocou.
+ */
+export async function fillLeadName(admin: Admin, leadId: string, name: string | null | undefined): Promise<string | null> {
+  const clean = name?.trim().slice(0, 120);
+  if (!clean || isPlaceholderName(clean)) return null;
+  const { data: lead } = await admin.from("leads").select("name").eq("id", leadId).maybeSingle();
+  if (!lead || !isPlaceholderName(lead.name)) return null;
+  const { error } = await admin.from("leads").update({ name: clean }).eq("id", leadId);
+  return error ? null : clean;
 }

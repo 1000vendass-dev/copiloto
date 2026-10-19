@@ -37,8 +37,8 @@ export function LeadForm({
 
       <fieldset className="grid gap-4 sm:grid-cols-2">
         <legend className="mb-2 text-sm font-semibold text-fg-muted">Contato</legend>
-        <Field label="Nome *" htmlFor="name">
-          <Input id="name" name="name" defaultValue={lead?.name} required autoFocus={!lead} />
+        <Field label="Nome" htmlFor="name" hint="Sem o nome? Deixe em branco e preencha o telefone: o nome do WhatsApp entra sozinho.">
+          <Input id="name" name="name" defaultValue={lead?.name} placeholder="Ex.: João Silva" autoFocus={!lead} />
         </Field>
         <Field label="Telefone / WhatsApp" htmlFor="phone">
           <Input id="phone" name="phone" type="tel" inputMode="tel" defaultValue={lead?.phone ?? ""} />

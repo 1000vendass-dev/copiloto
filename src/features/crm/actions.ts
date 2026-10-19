@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getSession } from "@/lib/auth";
+import { placeholderName } from "@/lib/lead-name";
 import { linkLeadToWhatsApp } from "@/lib/whatsapp/ingest";
 import { createClient } from "@/lib/supabase/server";
 import { STAGE_VALUES } from "./constants";
@@ -35,6 +36,10 @@ export async function createLead(_: ActionResult | undefined, formData: FormData
   const session = await getSession();
   const parsed = leadSchema.safeParse(formValues(formData, leadSchema));
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message };
+  if (!parsed.data.name) {
+    if (!parsed.data.phone) return { ok: false, error: "Informe o nome ou o telefone." };
+    parsed.data.name = placeholderName(parsed.data.phone);
+  }
 
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -57,6 +62,10 @@ export async function updateLead(_: ActionResult | undefined, formData: FormData
   const editSchema = leadSchema.omit({ stage: true, lost_reason: true });
   const parsed = editSchema.safeParse(formValues(formData, editSchema));
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message };
+  if (!parsed.data.name) {
+    if (!parsed.data.phone) return { ok: false, error: "Informe o nome ou o telefone." };
+    parsed.data.name = placeholderName(parsed.data.phone);
+  }
 
   const supabase = await createClient();
   const { error, count } = await supabase.from("leads").update(parsed.data, { count: "exact" }).eq("id", id.data);

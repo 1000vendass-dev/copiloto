@@ -103,3 +103,4 @@
 - 19/10/2026: Novo visual do app inteiro: tema segue o celular (claro limpo / escuro com vidro), azul de destaque, fonte Inter, botões em pílula, cards de vidro, menu inferior em pílula flutuante, janelas flutuantes com alça.
 - 19/10/2026: Configurações > Aparência: tema (automático/claro/escuro) e 6 cores de destaque, salvos no aparelho (cookie). Meu dia com os 4 números em grade 2x2.
 - 19/10/2026: Leads abre no funil, cards na ordem da última conversa (como WhatsApp) com bolinha verde de não lidas; selo no menu Leads. App atualiza sozinho (Supabase Realtime). Notificações no celular (Web Push) ao chegar mensagem de cliente; ativar em Configurações > Notificações.
+- 19/10/2026: Lead sem nome: IA e cadastro aceitam só telefone ("Sem nome · telefone"); o nome entra sozinho pelo perfil do WhatsApp (1ª mensagem ou contato do WAHA) ou quando a IA lê o nome na conversa. Chat da IA com botão "Abrir conversa" do lead. Chat do Copiloto sem vão embaixo.

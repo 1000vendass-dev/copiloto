@@ -42,7 +42,7 @@ export default async function MeuDiaPage() {
       <PageHeader title={`Olá, ${firstName}`} subtitle={`${labelDay(today)} · ${session.teamName}`} />
       {failed ? <div className="mb-4"><Alert>Parte das informações não carregou. Recarregue a página.</Alert></div> : null}
 
-      <div className="-mx-4 mb-5 flex gap-3 overflow-x-auto px-4 pb-1 no-scrollbar sm:mx-0 sm:grid sm:grid-cols-4 sm:overflow-visible sm:px-0">
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat href="/tarefas?view=atrasadas" icon={AlarmClock} label="Atrasadas" value={late.tasks.length} tone={late.tasks.length > 0 ? "red" : "slate"} />
         <Stat href="/tarefas?view=hoje" icon={CheckSquare} label="Tarefas hoje" value={todayTasks.tasks.length} tone="blue" />
         <Stat href="/agenda" icon={CalendarDays} label="Compromissos" value={activeAppts.length} tone="violet" />
@@ -132,7 +132,7 @@ const TONES = {
 
 function Stat({ href, icon: Icon, label, value, tone }: { href: string; icon: typeof Phone; label: string; value: number; tone: keyof typeof TONES }) {
   return (
-    <Link href={href} className="glass flex min-w-[9.5rem] shrink-0 items-center gap-3 rounded-3xl p-3.5 transition-transform active:scale-[0.98] sm:min-w-0">
+    <Link href={href} className="glass flex items-center gap-3 rounded-3xl p-3.5 transition-transform active:scale-[0.98]">
       <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${TONES[tone]}`}><Icon className="h-5 w-5" aria-hidden /></span>
       <span className="min-w-0">
         <span className={`block text-2xl font-bold leading-none tabular-nums ${tone === "red" ? "text-red-600 dark:text-red-400" : ""}`}>{value}</span>

@@ -1,7 +1,20 @@
 @import "tailwindcss";
 
-/* O tema segue o celular: claro de dia, escuro à noite (os utilitários dark: também). */
-@custom-variant dark (@media (prefers-color-scheme: dark));
+/*
+ * Tema: <html data-theme="light|dark"> força claro/escuro; sem o atributo (ou "auto"), segue o celular.
+ * Cor de destaque: <html data-accent="azul|violeta|rosa|laranja|verde|turquesa">. Escolhidos em Configurações.
+ * Os utilitários dark: do Tailwind seguem a mesma regra.
+ */
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme="light"]), :root:not([data-theme="light"]) *) {
+      @slot;
+    }
+  }
+}
 
 @theme {
   --color-brand: var(--brand);
@@ -17,13 +30,40 @@
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
-/* Claro: limpo, branco sobre cinza-azulado, azul de destaque */
+/* Cores de destaque: tom para o claro (l) e um pouco mais vivo para o escuro (d). Azul é o padrão. */
+:root, [data-accent="azul"] {
+  --accent-l: #2563eb; --accent-l-600: #1d4ed8; --accent-l-700: #1e40af;
+  --accent-d: #3b82f6; --accent-d-600: #2563eb; --accent-d-700: #1d4ed8;
+}
+[data-accent="violeta"] {
+  --accent-l: #7c3aed; --accent-l-600: #6d28d9; --accent-l-700: #5b21b6;
+  --accent-d: #8b5cf6; --accent-d-600: #7c3aed; --accent-d-700: #6d28d9;
+}
+[data-accent="rosa"] {
+  --accent-l: #db2777; --accent-l-600: #be185d; --accent-l-700: #9d174d;
+  --accent-d: #ec4899; --accent-d-600: #db2777; --accent-d-700: #be185d;
+}
+[data-accent="laranja"] {
+  --accent-l: #ea580c; --accent-l-600: #c2410c; --accent-l-700: #9a3412;
+  --accent-d: #f97316; --accent-d-600: #ea580c; --accent-d-700: #c2410c;
+}
+[data-accent="verde"] {
+  --accent-l: #059669; --accent-l-600: #047857; --accent-l-700: #065f46;
+  --accent-d: #10b981; --accent-d-600: #059669; --accent-d-700: #047857;
+}
+[data-accent="turquesa"] {
+  --accent-l: #0891b2; --accent-l-600: #0e7490; --accent-l-700: #155e75;
+  --accent-d: #06b6d4; --accent-d-600: #0891b2; --accent-d-700: #0e7490;
+}
+
+/* Claro: limpo, branco sobre cinza-azulado */
 :root {
-  --brand: #2563eb;
-  --brand-600: #1d4ed8;
-  --brand-700: #1e40af;
+  --brand: var(--accent-l);
+  --brand-600: var(--accent-l-600);
+  --brand-700: var(--accent-l-700);
   --bg: #f2f4f8;
   --surface: #ffffff;
+  --surface-float: rgb(255 255 255 / 0.86);
   --muted: #eef1f6;
   --muted-2: #e2e7ef;
   --border: #e3e8ef;
@@ -32,19 +72,40 @@
   --glass-blur: none;
   --shadow-card: 0 1px 2px rgb(15 23 42 / 0.04), 0 10px 30px -18px rgb(15 23 42 / 0.25);
   --shadow-float: 0 12px 40px -12px rgb(15 23 42 / 0.30), 0 2px 6px rgb(15 23 42 / 0.06);
-  --glow-1: rgb(37 99 235 / 0.07);
+  --glow-1: color-mix(in srgb, var(--brand) 8%, transparent);
   --glow-2: rgb(99 102 241 / 0.05);
   color-scheme: light;
 }
 
-/* Escuro: vidro fosco sobre fundo quase preto com brilho azul (estilo Pane) */
+/* Escuro: vidro fosco sobre fundo quase preto com brilho da cor de destaque (estilo Pane).
+   Mesmo bloco duas vezes: escolhido em Configurações, ou automático quando o celular está no escuro. */
+:root[data-theme="dark"] {
+  --brand: var(--accent-d);
+  --brand-600: var(--accent-d-600);
+  --brand-700: var(--accent-d-700);
+  --bg: #07090e;
+  --surface: rgb(24 29 40 / 0.72);
+  --surface-float: rgb(24 29 40 / 0.72);
+  --muted: rgb(255 255 255 / 0.06);
+  --muted-2: rgb(255 255 255 / 0.11);
+  --border: rgb(255 255 255 / 0.09);
+  --fg: #eef2f8;
+  --fg-muted: #93a0b4;
+  --glass-blur: blur(22px) saturate(160%);
+  --shadow-card: inset 0 1px 0 rgb(255 255 255 / 0.06), 0 18px 40px -24px rgb(0 0 0 / 0.8);
+  --shadow-float: inset 0 1px 0 rgb(255 255 255 / 0.08), 0 20px 50px -12px rgb(0 0 0 / 0.75);
+  --glow-1: color-mix(in srgb, var(--brand) 22%, transparent);
+  --glow-2: rgb(139 92 246 / 0.14);
+  color-scheme: dark;
+}
 @media (prefers-color-scheme: dark) {
-  :root {
-    --brand: #3b82f6;
-    --brand-600: #2563eb;
-    --brand-700: #1d4ed8;
+  :root:not([data-theme="light"]) {
+    --brand: var(--accent-d);
+    --brand-600: var(--accent-d-600);
+    --brand-700: var(--accent-d-700);
     --bg: #07090e;
     --surface: rgb(24 29 40 / 0.72);
+    --surface-float: rgb(24 29 40 / 0.72);
     --muted: rgb(255 255 255 / 0.06);
     --muted-2: rgb(255 255 255 / 0.11);
     --border: rgb(255 255 255 / 0.09);
@@ -53,7 +114,7 @@
     --glass-blur: blur(22px) saturate(160%);
     --shadow-card: inset 0 1px 0 rgb(255 255 255 / 0.06), 0 18px 40px -24px rgb(0 0 0 / 0.8);
     --shadow-float: inset 0 1px 0 rgb(255 255 255 / 0.08), 0 20px 50px -12px rgb(0 0 0 / 0.75);
-    --glow-1: rgb(59 130 246 / 0.20);
+    --glow-1: color-mix(in srgb, var(--brand) 22%, transparent);
     --glow-2: rgb(139 92 246 / 0.14);
     color-scheme: dark;
   }
@@ -82,14 +143,11 @@ input, select, textarea { font-size: 16px; }
   backdrop-filter: var(--glass-blur);
 }
 @utility glass-float {
-  background-color: var(--surface);
+  background-color: var(--surface-float);
   border: 1px solid var(--border);
   box-shadow: var(--shadow-float);
   -webkit-backdrop-filter: blur(24px) saturate(170%);
   backdrop-filter: blur(24px) saturate(170%);
-}
-@media (prefers-color-scheme: light) {
-  .glass-float { background-color: rgb(255 255 255 / 0.86); }
 }
 
 /* listas que rolam de lado (filtros) sem barra visível */

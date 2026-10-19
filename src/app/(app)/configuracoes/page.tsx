@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import Link from "next/link";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { signOut } from "@/features/auth/actions";
+import { AppearanceSettings } from "@/features/settings/appearance";
 import { TeamForm } from "@/features/settings/forms";
+import { ACCENT_COOKIE, THEME_COOKIE, parseAccent, parseTheme } from "@/lib/appearance";
 import { getSession } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
@@ -21,11 +24,16 @@ export default async function ConfiguracoesPage() {
     ? await supabase.from("profiles").select("id, full_name").in("id", ids)
     : { data: [] as { id: string; full_name: string | null }[] };
   const nameOf = new Map((profiles ?? []).map((p) => [p.id, p.full_name]));
+  const jar = await cookies();
 
   return (
     <>
       <PageHeader title="Configurações" />
       <div className="grid gap-4 md:grid-cols-2">
+        <Card className="md:col-span-2">
+          <CardTitle className="mb-4">Aparência</CardTitle>
+          <AppearanceSettings theme={parseTheme(jar.get(THEME_COOKIE)?.value)} accent={parseAccent(jar.get(ACCENT_COOKIE)?.value)} />
+        </Card>
         <Card>
           <CardTitle className="mb-3">Equipe</CardTitle>
           <TeamForm name={session.teamName} canEdit={session.role !== "member"} />

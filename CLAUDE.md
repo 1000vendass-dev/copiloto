@@ -101,3 +101,4 @@
 - 19/10/2026: Card do lead no formato WhatsApp (conversa em tela cheia; topo com perfil, ligar, WhatsApp e agenda; botão + com notas, tarefas, registrar contato e tags; botão da IA com conversa própria por lead). 6 leads antigos ligados ao WhatsApp; lead criado/editado com telefone (app ou IA) liga sozinho.
 - 19/10/2026: Áudio no card: gravar e enviar voz (microfone na caixa de mensagem), ouvir os áudios no balão e transcrição automática só para a IA (container `copiloto-whisper`). 12 áudios antigos guardados e transcritos. Ficha técnica no menu +.
 - 19/10/2026: Novo visual do app inteiro: tema segue o celular (claro limpo / escuro com vidro), azul de destaque, fonte Inter, botões em pílula, cards de vidro, menu inferior em pílula flutuante, janelas flutuantes com alça.
+- 19/10/2026: Configurações > Aparência: tema (automático/claro/escuro) e 6 cores de destaque, salvos no aparelho (cookie). Meu dia com os 4 números em grade 2x2.

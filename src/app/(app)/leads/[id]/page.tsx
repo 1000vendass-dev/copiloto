@@ -54,6 +54,11 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
 
   const profile = (
     <div className="space-y-5">
+      <div className="flex flex-wrap gap-2 border-b border-border pb-4">
+        <Link href={`/propostas/nova?lead=${lead.id}`}><Button variant="outline"><FileText className="h-4 w-4" />Proposta</Button></Link>
+        <Link href={`/leads/${lead.id}/editar`}><Button variant="outline"><Pencil className="h-4 w-4" />Editar</Button></Link>
+        <div className="ml-auto"><DeleteLeadButton leadId={lead.id} /></div>
+      </div>
       <Section title="Cliente">
         {customer ? <CustomerLink id={customer.id} name={customer.name} /> : <><p className="text-sm text-fg-muted">Ainda não cadastrado como cliente.</p><ConvertToCustomerButton leadId={lead.id} /></>}
       </Section>
@@ -78,11 +83,6 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
         ) : <p className="text-sm text-fg-muted">Nenhum vinculado. Use “Editar” para escolher do estoque.</p>}
       </Section>
       <Section title="Timeline"><Timeline items={activities} /></Section>
-      <div className="flex flex-wrap gap-2">
-        <Link href={`/propostas/nova?lead=${lead.id}`}><Button variant="outline"><FileText className="h-4 w-4" />Proposta</Button></Link>
-        <Link href={`/leads/${lead.id}/editar`}><Button variant="outline"><Pencil className="h-4 w-4" />Editar</Button></Link>
-        <div className="ml-auto"><DeleteLeadButton leadId={lead.id} /></div>
-      </div>
     </div>
   );
 

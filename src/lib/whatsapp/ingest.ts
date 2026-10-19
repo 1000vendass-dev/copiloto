@@ -2,8 +2,9 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { OPEN_STAGES } from "@/features/crm/constants";
-import { onlyDigits, sameNumber, shortId } from "./phone";
-import { resolveLid } from "./waha";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { onlyDigits, sameNumber, shortId, toWaId } from "./phone";
+import { resolveLid, wahaSession } from "./waha";
 
 type Admin = SupabaseClient;
 type Json = Record<string, unknown>;
@@ -173,4 +174,28 @@ export async function handleWahaEvent(admin: Admin, evt: Json): Promise<string> 
     externalId: rawId ? shortId(rawId) : null, direction: fromMe ? "saida" : "entrada", type, body, sentAt,
   });
   return res.duplicate ? "duplicate" : "ok";
+}
+
+/**
+ * Garante que um lead com telefone tenha contato do WhatsApp (assim a conversa e o "Tipo de contato" aparecem
+ * no card). Não rouba número já ligado a outro lead. Falha em silêncio: o lead já foi salvo.
+ */
+export async function linkLeadToWhatsApp(teamId: string, leadId: string, phone: string | null | undefined): Promise<void> {
+  const waId = toWaId(phone);
+  if (!waId) return;
+  try {
+    const admin = createAdminClient();
+    const account = await findAccount(admin, wahaSession(), teamId);
+    if (!account) return;
+    const { data: hit } = await admin.from("whatsapp_contacts").select("id,lead_id").eq("account_id", account.id).eq("wa_id", waId).maybeSingle();
+    if (hit) {
+      if (!hit.lead_id) await admin.from("whatsapp_contacts").update({ lead_id: leadId }).eq("id", hit.id);
+      return;
+    }
+    const { data: linked } = await admin.from("whatsapp_contacts").select("id").eq("lead_id", leadId).limit(1).maybeSingle();
+    if (linked) return;
+    await admin.from("whatsapp_contacts").insert({ team_id: account.team_id, account_id: account.id, wa_id: waId, lead_id: leadId });
+  } catch (e) {
+    console.error("[whatsapp/link]", e instanceof Error ? e.message : e);
+  }
 }

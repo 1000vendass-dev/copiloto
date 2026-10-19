@@ -96,3 +96,4 @@
 - 18/10/2026: Aula 1 de dados. Coluna `whatsapp_contacts.categoria` (cliente, proprio, loja, parceiro, spam) e 4 contatos marcados. Query "quem está esperando minha resposta".
 - 19/10/2026: Agenda e Tarefas com botão Novo compromisso / Nova tarefa (páginas `/agenda/novo` e `/tarefas/nova`), igual Novo cliente.
 - 19/10/2026: Os 4 leads que não são cliente viraram Perdido ("Não é cliente: ..."). Card do lead ganhou "Tipo de contato" (Cliente/Loja/Parceiro/Próprio/Spam): fora de Cliente, o lead sai do funil. `DEPLOY.md` reescrito para a VPS, com o plano do Caddy próprio.
+- 19/10/2026: Card do lead no formato WhatsApp (conversa em tela cheia; topo com perfil, ligar, WhatsApp e agenda; botão + com notas, tarefas, registrar contato e tags; botão da IA com conversa própria por lead). 6 leads antigos ligados ao WhatsApp; lead criado/editado com telefone (app ou IA) liga sozinho.

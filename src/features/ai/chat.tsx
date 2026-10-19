@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Mic, Send, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/card";
@@ -62,7 +63,21 @@ function Rich({ text }: { text: string }) {
 
 type SpeechRec = { lang: string; interimResults: boolean; onresult: (e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void; onend: () => void; onerror: () => void; start: () => void; stop: () => void };
 
-export function CopilotoChat() {
+const LEAD_SUGGESTIONS = [
+  "Resume a negociação",
+  "Marca como quente e agenda visita amanhã às 10h",
+  "Cria um follow-up para depois de amanhã",
+  "Anota: quer trocar o carro dele no negócio",
+  "Escreve um rascunho de resposta",
+];
+
+/**
+ * Chat do Copiloto. Com `lead`, é o balão do card: começa vazio, as sugestões são do card e o servidor sabe
+ * que "ele/ela/este lead" é esse lead.
+ */
+export function CopilotoChat({ lead, className }: { lead?: { id: string; name: string }; className?: string } = {}) {
+  const router = useRouter();
+  const leadId = lead?.id;
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -75,7 +90,7 @@ export function CopilotoChat() {
 
   useEffect(() => {
     setSpeechOk(typeof window !== "undefined" && ("webkitSpeechRecognition" in window || "SpeechRecognition" in window));
-    fetch("/api/copiloto")
+    fetch(`/api/copiloto${leadId ? `?leadId=${leadId}` : ""}`)
       .then(async (r) => {
         const j = await r.json();
         if (!r.ok) throw new Error(j.error ?? "Erro");
@@ -83,7 +98,7 @@ export function CopilotoChat() {
         setConfigured(Boolean(j.configured));
       })
       .catch((e) => setLoadError(e.message));
-  }, []);
+  }, [leadId]);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [messages]);
 
@@ -94,7 +109,8 @@ export function CopilotoChat() {
     setLoading(true);
     setMessages((m) => [...m, { role: "user", content: msg }, { role: "assistant", content: "", pending: true }]);
     try {
-      const r = await fetch("/api/copiloto", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ message: msg }) });
+      const r = await fetch("/api/copiloto", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ message: msg, leadId }) });
+      if (r.ok && leadId) router.refresh(); // o card mostra na hora o que a IA mudou
       const j = await r.json().catch(() => ({ error: "Resposta inválida do servidor." }));
       setMessages((m) => [...m.slice(0, -1), r.ok ? j.message : { role: "assistant", content: j.error ?? "Erro ao falar com o Copiloto.", error: true }]);
     } catch {
@@ -121,12 +137,12 @@ export function CopilotoChat() {
   }
 
   async function clear() {
-    await fetch("/api/copiloto", { method: "DELETE" });
+    await fetch(`/api/copiloto${leadId ? `?leadId=${leadId}` : ""}`, { method: "DELETE" });
     setMessages([]);
   }
 
   return (
-    <div className="flex h-[calc(100dvh-10rem)] flex-col md:h-[calc(100dvh-6rem)]">
+    <div className={cn("flex flex-col", className ?? "h-[calc(100dvh-10rem)] md:h-[calc(100dvh-6rem)]")}>
       {!configured ? <div className="mb-3"><Alert kind="info">O Copiloto ainda não foi ativado: falta a chave da IA (ANTHROPIC_API_KEY) na Vercel. O resto do app funciona normalmente.</Alert></div> : null}
       {loadError ? <div className="mb-3"><Alert>{loadError}</Alert></div> : null}
 
@@ -135,11 +151,13 @@ export function CopilotoChat() {
           <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
             <Sparkles className="h-10 w-10 text-brand" aria-hidden />
             <div>
-              <h2 className="text-lg font-semibold">Pergunte qualquer coisa</h2>
-              <p className="text-sm text-fg-muted">Consulto e registro direto no seu banco: leads, estoque, agenda e tarefas.</p>
+              <h2 className="text-lg font-semibold">{lead ? `Comandos para ${lead.name}` : "Pergunte qualquer coisa"}</h2>
+              <p className="text-sm text-fg-muted">{lead
+                ? "Diga o que fazer neste lead: atualizo o card, crio tarefas, notas e rascunhos."
+                : "Consulto e registro direto no seu banco: leads, estoque, agenda e tarefas."}</p>
             </div>
             <div className="flex max-w-xl flex-wrap justify-center gap-2">
-              {SUGGESTIONS.map((s) => (
+              {(lead ? LEAD_SUGGESTIONS : SUGGESTIONS).map((s) => (
                 <button key={s} type="button" onClick={() => send(s)} className="rounded-full border border-border bg-surface px-3 py-1.5 text-left text-sm hover:border-brand">{s}</button>
               ))}
             </div>

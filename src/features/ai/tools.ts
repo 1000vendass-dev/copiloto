@@ -7,6 +7,7 @@ import { parseVehicleQuery, type VehicleQuery } from "@/features/inventory/parse
 import { searchVehicles } from "@/features/inventory/queries";
 import { getCallList } from "@/features/routine/queries";
 import { dayRangeSP, todaySP } from "@/lib/dates";
+import { linkLeadToWhatsApp } from "@/lib/whatsapp/ingest";
 import { REGISTER_INTERACTION_TOOL, registerInteraction } from "./interaction";
 
 export type ToolContext = {
@@ -273,6 +274,7 @@ export const TOOLS: Tool[] = [
       const stage = ["novo", "primeiro_contato", "atendimento", "qualificado", "visita", "proposta", "negociacao", "sem_resposta"].includes(String(a.stage)) ? String(a.stage) : undefined;
       const { data, error } = await ctx.supabase.from("leads").insert({ ...row, ...(stage ? { stage } : {}), team_id: ctx.teamId, owner_id: ctx.userId }).select("*").single();
       if (error) return fail("Não foi possível criar o lead.");
+      await linkLeadToWhatsApp(ctx.teamId, data.id, data.phone);
       const note = str(a.notes, 2000);
       if (note) await ctx.supabase.from("notes").insert({ team_id: ctx.teamId, owner_id: ctx.userId, lead_id: data.id, content: note });
       const ct = String(a.contact_type ?? "");

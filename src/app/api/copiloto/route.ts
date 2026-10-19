@@ -21,22 +21,33 @@ async function context() {
   return { supabase, userId: user.id, userName: profile?.full_name ?? user.email ?? "vendedor", teamId: m.team_id as string, teamName: (m.teams as unknown as { name: string } | null)?.name ?? "" };
 }
 
-export async function GET() {
+type Ctx = NonNullable<Awaited<ReturnType<typeof context>>>;
+const uuid = z.string().uuid();
+const leadParam = (req: NextRequest) => { const v = req.nextUrl.searchParams.get("leadId"); return v && uuid.safeParse(v).success ? v : null; };
+
+/** Conversa do chat geral (meta.leadId vazio) ou do balão de um card (meta.leadId = lead). */
+function thread(c: Ctx, leadId: string | null) {
+  const q = c.supabase.from("ai_messages").select("id,role,content,meta,created_at").eq("user_id", c.userId);
+  return leadId ? q.eq("meta->>leadId", leadId) : q.is("meta->>leadId", null);
+}
+
+export async function GET(req: NextRequest) {
   const c = await context();
   if (!c) return NextResponse.json({ error: "Sessão expirada. Entre novamente." }, { status: 401 });
-  const { data } = await c.supabase.from("ai_messages").select("id,role,content,meta,created_at")
-    .eq("user_id", c.userId).order("created_at", { ascending: false }).limit(40);
+  const { data } = await thread(c, leadParam(req)).order("created_at", { ascending: false }).limit(40);
   return NextResponse.json({ messages: (data ?? []).reverse(), configured: Boolean(process.env.COPILOTO_BRIDGE_URL || process.env.ANTHROPIC_API_KEY) });
 }
 
-export async function DELETE() {
+export async function DELETE(req: NextRequest) {
   const c = await context();
   if (!c) return NextResponse.json({ error: "Sessão expirada." }, { status: 401 });
-  await c.supabase.from("ai_messages").delete().eq("user_id", c.userId);
+  const leadId = leadParam(req);
+  const q = c.supabase.from("ai_messages").delete().eq("user_id", c.userId);
+  await (leadId ? q.eq("meta->>leadId", leadId) : q.is("meta->>leadId", null));
   return NextResponse.json({ ok: true });
 }
 
-const bodySchema = z.object({ message: z.string().trim().min(1).max(2000) });
+const bodySchema = z.object({ message: z.string().trim().min(1).max(2000), leadId: uuid.optional() });
 
 export async function POST(req: NextRequest) {
   const c = await context();
@@ -52,9 +63,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "O Copiloto ainda não está ativado: falta configurar a IA (COPILOTO_BRIDGE_URL ou ANTHROPIC_API_KEY)." }, { status: 503 });
   }
 
-  // histórico curto (só texto): o contexto de negócio vem do banco via ferramentas, não do chat
+  // balão do card: a IA sabe qual lead está aberto (RLS garante que é da equipe)
+  let focusLead: { id: string; name: string } | undefined;
+  if (parsed.data.leadId) {
+    const { data: lead } = await c.supabase.from("leads").select("id,name").eq("id", parsed.data.leadId).maybeSingle();
+    if (!lead) return NextResponse.json({ error: "Lead não encontrado." }, { status: 404 });
+    focusLead = lead;
+  }
+  const leadId = focusLead?.id ?? null;
+  const meta = leadId ? { leadId } : null;
+
+  // histórico curto (só texto) da mesma conversa: o contexto de negócio vem do banco via ferramentas, não do chat
   const [{ data: hist }, { data: mems }, stores] = await Promise.all([
-    c.supabase.from("ai_messages").select("role,content").eq("user_id", c.userId).order("created_at", { ascending: false }).limit(6),
+    thread(c, leadId).order("created_at", { ascending: false }).limit(6),
     c.supabase.from("ai_memory").select("content").in("scope", ["geral", "preferencia"]).order("importance", { ascending: false }).limit(15),
     listStores(),
   ]);
@@ -65,19 +86,19 @@ export async function POST(req: NextRequest) {
   for (const m of history) { if (clean.length && clean[clean.length - 1].role === m.role) clean.pop(); clean.push(m); }
   if (clean.length && clean[clean.length - 1].role === "user") clean.pop();
 
-  await c.supabase.from("ai_messages").insert({ team_id: c.teamId, user_id: c.userId, role: "user", content: text });
+  await c.supabase.from("ai_messages").insert({ team_id: c.teamId, user_id: c.userId, role: "user", content: text, meta });
 
   try {
     const { reply, actions, usage } = await runCopiloto({
       apiKey,
       model: process.env.COPILOTO_MODEL || "claude-haiku-4-5",
-      system: systemPrompt({ userName: c.userName, teamName: c.teamName, stores, memories: (mems ?? []).map((m) => m.content) }),
+      system: systemPrompt({ userName: c.userName, teamName: c.teamName, stores, memories: (mems ?? []).map((m) => m.content), focusLead }),
       history: clean,
       userText: text,
       ctx: { supabase: c.supabase, userId: c.userId, teamId: c.teamId, userConfirmed: isConfirmation(text), origin: await getSiteOrigin() },
     });
     const { data: saved } = await c.supabase.from("ai_messages")
-      .insert({ team_id: c.teamId, user_id: c.userId, role: "assistant", content: reply, meta: { actions, usage } })
+      .insert({ team_id: c.teamId, user_id: c.userId, role: "assistant", content: reply, meta: { ...meta, actions, usage } })
       .select("id,role,content,meta,created_at").single();
     return NextResponse.json({ message: saved ?? { role: "assistant", content: reply, meta: { actions } } });
   } catch (e) {

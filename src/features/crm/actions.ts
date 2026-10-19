@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getSession } from "@/lib/auth";
+import { linkLeadToWhatsApp } from "@/lib/whatsapp/ingest";
 import { createClient } from "@/lib/supabase/server";
 import { STAGE_VALUES } from "./constants";
 import { formValues } from "@/lib/forms";
@@ -43,12 +44,13 @@ export async function createLead(_: ActionResult | undefined, formData: FormData
     .single();
   if (error) return { ok: false, error: dbError(error.message) };
 
+  await linkLeadToWhatsApp(session.teamId, data.id, parsed.data.phone);
   revalidateCrm(data.id, parsed.data.customer_id);
   redirect(`/leads/${data.id}`);
 }
 
 export async function updateLead(_: ActionResult | undefined, formData: FormData): Promise<ActionResult> {
-  await getSession();
+  const session = await getSession();
   const id = uuid.safeParse(formData.get("id"));
   if (!id.success) return { ok: false, error: "Lead inválido." };
   // etapa e motivo de perda mudam só por changeLeadStage (gera timeline)
@@ -59,6 +61,7 @@ export async function updateLead(_: ActionResult | undefined, formData: FormData
   const supabase = await createClient();
   const { error, count } = await supabase.from("leads").update(parsed.data, { count: "exact" }).eq("id", id.data);
   if (error || !count) return { ok: false, error: dbError(error?.message) };
+  await linkLeadToWhatsApp(session.teamId, id.data, parsed.data.phone);
   revalidateCrm(id.data, parsed.data.customer_id);
   return { ok: true, id: id.data };
 }

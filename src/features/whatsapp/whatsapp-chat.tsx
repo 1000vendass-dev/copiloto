@@ -4,7 +4,8 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Send, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn, formatDateTime } from "@/lib/utils";
+import { formatTime, labelDay, ymdOf } from "@/lib/dates";
+import { cn } from "@/lib/utils";
 import { discardDraft, markLeadConversationRead, sendWhatsApp } from "./actions";
 import type { WaDraft, WaMessage } from "./queries";
 
@@ -42,19 +43,24 @@ function Draft({ draft, leadId }: { draft: WaDraft; leadId: string }) {
   );
 }
 
-export function WhatsAppChat({ leadId, messages, drafts }: { leadId: string; messages: WaMessage[]; drafts: WaDraft[] }) {
+/**
+ * Conversa em tela cheia, como no WhatsApp: as mensagens ocupam o espaço do pai (que precisa ser flex-col com
+ * altura definida) e a caixa de texto fica presa embaixo. O `pr-16` da lista deixa espaço para os botões flutuantes.
+ */
+export function WhatsAppChat({ leadId, messages, drafts, enabled = true }: { leadId: string; messages: WaMessage[]; drafts: WaDraft[]; enabled?: boolean }) {
   const router = useRouter();
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
-  const endRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { void markLeadConversationRead(leadId); }, [leadId]);
+  useEffect(() => { if (enabled) void markLeadConversationRead(leadId); }, [leadId, enabled]);
   useEffect(() => {
     const id = setInterval(() => { if (document.visibilityState === "visible") router.refresh(); }, REFRESH_MS);
     return () => clearInterval(id);
   }, [router]);
-  useEffect(() => { endRef.current?.scrollIntoView({ block: "nearest" }); }, [messages.length]);
+  // rola só a lista (não a página) até a última mensagem
+  useEffect(() => { const el = listRef.current; if (el) el.scrollTop = el.scrollHeight; }, [messages.length, drafts.length]);
 
   const send = () => start(async () => {
     setError(null);
@@ -64,31 +70,45 @@ export function WhatsAppChat({ leadId, messages, drafts }: { leadId: string; mes
     router.refresh();
   });
 
+  let lastDay = "";
   return (
-    <div className="space-y-3">
-      <div className="max-h-96 space-y-2 overflow-y-auto rounded-lg border border-border bg-bg p-3">
-        {messages.length === 0 ? (
-          <p className="text-sm text-fg-muted">Nenhuma mensagem ainda. As conversas deste lead aparecem aqui.</p>
-        ) : messages.map((m) => (
-          <div key={m.id} className={cn("flex", m.direction === "saida" ? "justify-end" : "justify-start")}>
-            <div className={cn("max-w-[85%] rounded-2xl px-3 py-2 text-sm", m.direction === "saida" ? "bg-brand text-white" : "border border-border bg-surface")}>
-              <p className="whitespace-pre-wrap break-words">{m.body}</p>
-              <div className={cn("mt-1 text-[11px]", m.direction === "saida" ? "text-white/70" : "text-fg-muted")}>{formatDateTime(m.sent_at)}</div>
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div ref={listRef} className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain px-3 py-3 pr-16">
+        {!enabled ? (
+          <p className="mx-auto mt-8 max-w-xs text-center text-sm text-fg-muted">WhatsApp do Copiloto não está conectado nesta equipe.</p>
+        ) : messages.length === 0 ? (
+          <p className="mx-auto mt-8 max-w-xs text-center text-sm text-fg-muted">Nenhuma mensagem ainda. As conversas deste lead aparecem aqui.</p>
+        ) : messages.map((m) => {
+          const day = ymdOf(m.sent_at);
+          const sep = day !== lastDay;
+          lastDay = day;
+          return (
+            <div key={m.id}>
+              {sep ? <div className="my-3 flex justify-center"><span className="rounded-full bg-muted px-3 py-0.5 text-[11px] font-medium text-fg-muted">{labelDay(day)}</span></div> : null}
+              <div className={cn("flex", m.direction === "saida" ? "justify-end" : "justify-start")}>
+                <div className={cn("max-w-[85%] rounded-2xl px-3 py-1.5 text-sm shadow-sm", m.direction === "saida" ? "rounded-br-sm bg-brand text-white" : "rounded-bl-sm bg-surface")}>
+                  <p className="whitespace-pre-wrap break-words">{m.body}</p>
+                  <div className={cn("text-right text-[10px]", m.direction === "saida" ? "text-white/70" : "text-fg-muted")}>{formatTime(m.sent_at)}</div>
+                </div>
+              </div>
             </div>
+          );
+        })}
+        {drafts.map((d) => <Draft key={d.id} draft={d} leadId={leadId} />)}
+      </div>
+
+      {enabled ? (
+        <div className="border-t border-border bg-surface px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+          {error ? <p className="px-1 pb-1 text-sm text-red-600" role="alert">{error}</p> : null}
+          <div className="flex items-end gap-2">
+            <textarea
+              className="max-h-32 min-h-11 flex-1 resize-none rounded-3xl border border-border bg-bg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand"
+              rows={1} placeholder="Mensagem" aria-label="Mensagem de WhatsApp" value={text} onChange={(e) => setText(e.target.value)} disabled={pending}
+            />
+            <Button size="icon" className="h-11 w-11 shrink-0 rounded-full" onClick={send} disabled={pending || !text.trim()} aria-label="Enviar"><Send className="h-5 w-5" /></Button>
           </div>
-        ))}
-        <div ref={endRef} />
-      </div>
-
-      {drafts.map((d) => <Draft key={d.id} draft={d} leadId={leadId} />)}
-
-      <div className="space-y-2">
-        <textarea className={textareaCls} rows={2} placeholder="Escreva uma mensagem…" value={text} onChange={(e) => setText(e.target.value)} disabled={pending} />
-        {error ? <p className="text-sm text-red-600" role="alert">{error}</p> : null}
-        <div className="flex justify-end">
-          <Button onClick={send} disabled={pending || !text.trim()}><Send className="h-4 w-4" />Enviar</Button>
         </div>
-      </div>
+      ) : null}
     </div>
   );
 }

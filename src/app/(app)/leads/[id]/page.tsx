@@ -1,15 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CalendarPlus, FileText, MessageCircle, Pencil, Phone } from "lucide-react";
-import { PageHeader } from "@/components/layout/page-header";
+import { FileText, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardTitle } from "@/components/ui/card";
+import { CardTitle } from "@/components/ui/card";
 import {
   ContactForm, ConvertToCustomerButton, CustomerLink, DeleteLeadButton, FollowUpForm, NoteForm, NoteList,
   StageControl, TagEditor, TaskList, TemperatureControl,
 } from "@/features/crm/components/lead-controls";
+import { LeadWorkspace } from "@/features/crm/components/lead-workspace";
 import { Timeline } from "@/features/crm/components/timeline";
+import { stageLabel } from "@/features/crm/constants";
 import { getLead } from "@/features/crm/queries";
 import { statusLabel } from "@/features/inventory/constants";
 import { ContactTypeControl } from "@/features/whatsapp/contact-type-control";
@@ -25,14 +26,20 @@ function waLink(phone: string) {
   return `https://wa.me/${digits.length <= 11 ? "55" + digits : digits}`;
 }
 
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return <section className="space-y-3 border-b border-border pb-5 last:border-0 last:pb-0"><CardTitle>{title}</CardTitle>{children}</section>;
+}
+
 export default async function LeadPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const [session, data, whatsapp] = await Promise.all([getSession(), getLead(id), getLeadWhatsApp(id)]);
   if (!data) notFound();
   const { lead, activities, notes, tasks, tags, allTags, customer, vehicle } = data;
+  const target = { leadId: lead.id, customerId: lead.customer_id ?? undefined };
 
   const info: [string, React.ReactNode][] = [
+    ["Telefone", lead.phone],
     ["Interesse", lead.interest],
     ["Orçamento máx.", lead.budget_max ? formatBRL(lead.budget_max) : null],
     ["Pagamento", lead.payment_method],
@@ -45,87 +52,53 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
     ["Motivo da perda", lead.stage === "perdido" ? lead.lost_reason : null],
   ];
 
-  return (
-    <>
-      <PageHeader
-        title={lead.name}
-        subtitle={lead.phone ?? undefined}
-        actions={
-          <>
-            {lead.phone ? (
-              <>
-                <a href={`tel:${lead.phone.replace(/\s/g, "")}`}><Button variant="outline" size="icon" aria-label="Ligar"><Phone className="h-4 w-4" /></Button></a>
-                <a href={waLink(lead.phone)} target="_blank" rel="noopener noreferrer"><Button variant="outline" size="icon" aria-label="WhatsApp"><MessageCircle className="h-4 w-4" /></Button></a>
-              </>
-            ) : null}
-            <Link href={`/propostas/nova?lead=${lead.id}`}><Button variant="outline"><FileText className="h-4 w-4" />Proposta</Button></Link>
-            <Link href={`/agenda/novo?lead=${lead.id}`}><Button variant="outline" size="icon" aria-label="Agendar"><CalendarPlus className="h-4 w-4" /></Button></Link>
-            <Link href={`/leads/${lead.id}/editar`}><Button variant="outline"><Pencil className="h-4 w-4" />Editar</Button></Link>
-          </>
-        }
-      />
-
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="space-y-4 lg:col-span-1">
-          <Card className="space-y-3">
-            <CardTitle>Negociação</CardTitle>
-            <StageControl key={lead.stage} leadId={lead.id} stage={lead.stage} />
-            <TemperatureControl leadId={lead.id} value={lead.temperature} />
-            {whatsapp.contactType ? <ContactTypeControl leadId={lead.id} value={whatsapp.contactType} /> : null}
-            <dl className="space-y-2 text-sm">
-              {info.filter(([, v]) => v).map(([k, v]) => (
-                <div key={k}><dt className="text-xs text-fg-muted">{k}</dt><dd>{v}</dd></div>
-              ))}
-            </dl>
-          </Card>
-
-          <Card className="space-y-2">
-            <CardTitle>Veículo de interesse</CardTitle>
-            {vehicle ? (
-              <Link href={`/estoque/${vehicle.id}`} className="block text-sm hover:underline">
-                {vehicle.brand} {vehicle.model} {vehicle.version} {vehicle.year_model}
-                <div className="text-fg-muted">{formatBRL(vehicle.sale_price)} · {statusLabel(vehicle.status)}</div>
-              </Link>
-            ) : (
-              <p className="text-sm text-fg-muted">Nenhum vinculado. Use “Editar” para escolher do estoque.</p>
-            )}
-          </Card>
-
-          <Card className="space-y-2">
-            <CardTitle>Cliente</CardTitle>
-            {customer ? <CustomerLink id={customer.id} name={customer.name} /> : <ConvertToCustomerButton leadId={lead.id} />}
-          </Card>
-
-          <Card className="space-y-2">
-            <CardTitle>Tags</CardTitle>
-            <TagEditor target="lead" targetId={lead.id} tags={tags} allTags={allTags} />
-          </Card>
-        </div>
-
-        <div className="space-y-4 lg:col-span-2">
-          {whatsapp.enabled ? (
-            <Card>
-              <CardTitle className="mb-3">Conversa no WhatsApp</CardTitle>
-              <WhatsAppChat leadId={lead.id} messages={whatsapp.messages} drafts={whatsapp.drafts} />
-            </Card>
-          ) : null}
-          <Card><CardTitle className="mb-3">Registrar contato</CardTitle><ContactForm leadId={lead.id} customerId={lead.customer_id ?? undefined} /></Card>
-          <Card>
-            <CardTitle className="mb-3">Follow-ups e tarefas</CardTitle>
-            <TaskList tasks={tasks} />
-            <details className="mt-3"><summary className="cursor-pointer text-sm font-medium text-brand">+ Novo follow-up</summary>
-              <div className="mt-3"><FollowUpForm leadId={lead.id} customerId={lead.customer_id ?? undefined} /></div>
-            </details>
-          </Card>
-          <Card>
-            <CardTitle className="mb-3">Notas</CardTitle>
-            <NoteForm leadId={lead.id} customerId={lead.customer_id ?? undefined} />
-            <NoteList notes={notes} userId={session.userId} />
-          </Card>
-          <Card><CardTitle className="mb-4">Timeline</CardTitle><Timeline items={activities} /></Card>
-          <div className="flex justify-end"><DeleteLeadButton leadId={lead.id} /></div>
-        </div>
+  const profile = (
+    <div className="space-y-5">
+      <Section title="Cliente">
+        {customer ? <CustomerLink id={customer.id} name={customer.name} /> : <><p className="text-sm text-fg-muted">Ainda não cadastrado como cliente.</p><ConvertToCustomerButton leadId={lead.id} /></>}
+      </Section>
+      <Section title="Negociação">
+        <StageControl key={lead.stage} leadId={lead.id} stage={lead.stage} />
+        <TemperatureControl leadId={lead.id} value={lead.temperature} />
+        {whatsapp.contactType
+          ? <ContactTypeControl leadId={lead.id} value={whatsapp.contactType} />
+          : <p className="text-xs text-fg-muted">Tipo de contato: cadastre o telefone (Editar) para ligar ao WhatsApp.</p>}
+        <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+          {info.filter(([, v]) => v).map(([k, v]) => (
+            <div key={k} className="min-w-0"><dt className="text-xs text-fg-muted">{k}</dt><dd className="break-words">{v}</dd></div>
+          ))}
+        </dl>
+      </Section>
+      <Section title="Veículo de interesse">
+        {vehicle ? (
+          <Link href={`/estoque/${vehicle.id}`} className="block text-sm hover:underline">
+            {vehicle.brand} {vehicle.model} {vehicle.version} {vehicle.year_model}
+            <div className="text-fg-muted">{formatBRL(vehicle.sale_price)} · {statusLabel(vehicle.status)}</div>
+          </Link>
+        ) : <p className="text-sm text-fg-muted">Nenhum vinculado. Use “Editar” para escolher do estoque.</p>}
+      </Section>
+      <Section title="Timeline"><Timeline items={activities} /></Section>
+      <div className="flex flex-wrap gap-2">
+        <Link href={`/propostas/nova?lead=${lead.id}`}><Button variant="outline"><FileText className="h-4 w-4" />Proposta</Button></Link>
+        <Link href={`/leads/${lead.id}/editar`}><Button variant="outline"><Pencil className="h-4 w-4" />Editar</Button></Link>
+        <div className="ml-auto"><DeleteLeadButton leadId={lead.id} /></div>
       </div>
-    </>
+    </div>
+  );
+
+  return (
+    <LeadWorkspace
+      lead={{ id: lead.id, name: lead.name, subtitle: `${stageLabel(lead.stage)}${lead.phone ? " · " + lead.phone : ""}` }}
+      telHref={lead.phone ? `tel:${lead.phone.replace(/\s/g, "")}` : null}
+      waHref={lead.phone ? waLink(lead.phone) : null}
+      chat={<WhatsAppChat leadId={lead.id} messages={whatsapp.messages} drafts={whatsapp.drafts} enabled={whatsapp.enabled} />}
+      profile={profile}
+      panels={{
+        notas: <div className="space-y-4"><NoteForm {...target} /><NoteList notes={notes} userId={session.userId} /></div>,
+        tarefas: <div className="space-y-4"><TaskList tasks={tasks} /><div className="border-t border-border pt-4"><FollowUpForm {...target} /></div></div>,
+        contato: <ContactForm {...target} />,
+        tags: <TagEditor target="lead" targetId={lead.id} tags={tags} allTags={allTags} />,
+      }}
+    />
   );
 }

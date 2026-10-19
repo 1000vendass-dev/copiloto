@@ -1,6 +1,7 @@
 import "server-only";
 
 import { OPEN_STAGES, stageLabel } from "@/features/crm/constants";
+import { linkLeadToWhatsApp } from "@/lib/whatsapp/ingest";
 import type { ToolContext } from "./tools";
 
 type Json = Record<string, unknown>;
@@ -128,10 +129,12 @@ export async function registerInteraction(a: Json, ctx: ToolContext): Promise<Js
     const { data, error } = await sb.from("leads").insert({ ...patch, name: nome, team_id: ctx.teamId, owner_id: ctx.userId }).select("*").single();
     if (error) return { ok: false, error: "Não foi possível criar o lead." };
     lead = data; created = true;
+    await linkLeadToWhatsApp(ctx.teamId, data.id, data.phone);
     feito.push(`lead ${nome} criado`);
   } else if (Object.keys(patch).length) {
     const { data } = await sb.from("leads").update(patch).eq("id", lead.id as string).select("*").single();
     if (data) lead = data;
+    if (data && patch.phone) await linkLeadToWhatsApp(ctx.teamId, data.id, data.phone);
     feito.push(`lead atualizado (${Object.keys(patch).map((c) => ({ interest: "interesse", budget_max: "orçamento", payment_method: "pagamento", trade_in: "troca", purchase_timeframe: "prazo", temperature: "temperatura", vehicle_id: "veículo", phone: "telefone", source: "origem" } as Json)[c] ?? c).join(", ")})`);
   }
   const leadId = lead!.id as string;

@@ -110,3 +110,9 @@ input, select, textarea { font-size: 16px; }
     radial-gradient(45rem 40rem at 110% 105%, var(--glow-2), transparent 60%),
     var(--bg);
 }
+
+/*
+ * Item de grade não cresce além da coluna. Sem isso, um texto de uma linha só (truncate) faz o card ficar
+ * da largura do texto inteiro, a página passa da tela e o celular "dá zoom out".
+ */
+.grid > * { min-width: 0; }

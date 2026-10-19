@@ -4,7 +4,7 @@ import { useFormAction } from "@/lib/use-form-action";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
-import { MapPin } from "lucide-react";
+import { MapPin, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, EmptyState } from "@/components/ui/card";
 import { ConfirmButton } from "@/components/ui/confirm-button";
@@ -98,13 +98,13 @@ export function AppointmentList({ items, leads }: { items: AppointmentRow[]; lea
                   {a.location ? <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3" />{a.location}</span> : null}
                 </div>
               </div>
-              <div className="flex items-center gap-1">
-                <Select aria-label="Status" className="h-9 w-40 text-sm" value={a.status} disabled={pending}
+              <div className="flex w-full items-center gap-1 sm:w-auto">
+                <Select aria-label="Status" className="h-9 w-auto min-w-0 flex-1 rounded-full px-3 text-sm sm:w-40 sm:flex-none" value={a.status} disabled={pending}
                   onChange={(e) => { const s = e.target.value; start(async () => { await setAppointmentStatus(a.id, s); }); }}>
                   {APPT_STATUS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
                 </Select>
-                <Button variant="ghost" size="sm" onClick={() => setEditing(a.id)}>Editar</Button>
-                <ConfirmButton label="Excluir" confirmLabel="Excluir" variant="ghost" onConfirm={() => deleteAppointment(a.id)} />
+                <Button variant="ghost" size="icon" className="h-9 w-9 text-fg-muted" aria-label="Editar compromisso" onClick={() => setEditing(a.id)}><Pencil className="h-4 w-4" /></Button>
+                <ConfirmButton label={<Trash2 className="h-4 w-4" />} ariaLabel="Excluir compromisso" confirmLabel="Excluir" variant="ghost" size="icon" onConfirm={() => deleteAppointment(a.id)} />
               </div>
             </div>
           )}

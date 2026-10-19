@@ -4,7 +4,7 @@ import { useFormAction } from "@/lib/use-form-action";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { Check, Plus } from "lucide-react";
+import { Check, Plus, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, EmptyState } from "@/components/ui/card";
@@ -62,7 +62,7 @@ export function StageControl({ leadId, stage }: { leadId: string; stage: string 
 export function TemperatureControl({ leadId, value }: { leadId: string; value: string | null }) {
   const [pending, start] = useTransition();
   return (
-    <div className="flex gap-1" role="group" aria-label="Temperatura">
+    <div className="flex flex-wrap gap-2" role="group" aria-label="Temperatura">
       {TEMPERATURES.map((t) => (
         <button
           key={t.value}
@@ -70,9 +70,8 @@ export function TemperatureControl({ leadId, value }: { leadId: string; value: s
           disabled={pending}
           onClick={() => start(async () => { await setLeadTemperature(leadId, value === t.value ? null : t.value); })}
           className={cn(
-            "rounded-full px-3 py-1 text-xs font-medium transition-opacity",
-            t.className,
-            value === t.value ? "ring-2 ring-offset-1 ring-current" : "opacity-50 hover:opacity-100",
+            "h-8 rounded-full px-3.5 text-xs font-semibold transition-all",
+            value === t.value ? cn(t.className, "ring-2 ring-current ring-offset-2 ring-offset-surface") : "bg-muted text-fg-muted hover:text-fg",
           )}
         >
           {t.label}
@@ -263,7 +262,7 @@ export function ConvertToCustomerButton({ leadId }: { leadId: string }) {
 }
 
 export function DeleteLeadButton({ leadId }: { leadId: string }) {
-  return <ConfirmButton label="Excluir lead" confirmLabel="Excluir lead e histórico" onConfirm={() => deleteLead(leadId)} />;
+  return <ConfirmButton label={<span className="inline-flex items-center gap-1.5 text-red-600 dark:text-red-400"><Trash2 className="h-4 w-4" />Excluir</span>} ariaLabel="Excluir lead" variant="ghost" confirmLabel="Excluir lead e histórico" onConfirm={() => deleteLead(leadId)} />;
 }
 
 export function CustomerLink({ id, name }: { id: string; name: string }) {

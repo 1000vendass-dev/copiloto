@@ -4,7 +4,7 @@ import { useFormAction } from "@/lib/use-form-action";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
-import { Check, Pencil } from "lucide-react";
+import { Check, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, EmptyState } from "@/components/ui/card";
 import { ConfirmButton } from "@/components/ui/confirm-button";
@@ -94,9 +94,9 @@ export function TaskRows({ tasks, leads }: { tasks: TaskRow[]; leads: LeadOption
                     </div>
                     {t.description ? <p className="mt-1 text-sm text-fg-muted">{t.description}</p> : null}
                   </div>
-                  <div className="flex shrink-0 items-center gap-1">
-                    {!done ? <Button type="button" variant="ghost" size="icon" aria-label="Editar" onClick={() => setEditing(t.id)}><Pencil className="h-4 w-4" /></Button> : null}
-                    <ConfirmButton label="Excluir" confirmLabel="Excluir" variant="ghost" onConfirm={() => deleteTask(t.id)} />
+                  <div className="-mr-1.5 -mt-1 flex shrink-0 items-center">
+                    {!done ? <Button type="button" variant="ghost" size="icon" className="h-9 w-9 text-fg-muted" aria-label="Editar" onClick={() => setEditing(t.id)}><Pencil className="h-4 w-4" /></Button> : null}
+                    <ConfirmButton label={<Trash2 className="h-4 w-4" />} ariaLabel="Excluir tarefa" confirmLabel="Excluir" variant="ghost" size="icon" onConfirm={() => deleteTask(t.id)} />
                   </div>
                 </div>
               )}

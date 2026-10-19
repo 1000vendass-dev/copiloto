@@ -13,10 +13,13 @@ export function ConfirmButton({
   confirmLabel = "Confirmar exclusão",
   variant = "outline",
   size = "sm",
+  ariaLabel,
 }: {
   onConfirm: () => Promise<{ ok: boolean; error?: string } | void>;
-  label: string;
+  label: React.ReactNode;
   confirmLabel?: string;
+  /** obrigatório quando o label é só um ícone */
+  ariaLabel?: string;
   variant?: ButtonProps["variant"];
   size?: ButtonProps["size"];
 }) {
@@ -26,13 +29,13 @@ export function ConfirmButton({
 
   if (!armed) {
     return (
-      <Button type="button" variant={variant} size={size} onClick={() => setArmed(true)}>
+      <Button type="button" variant={variant} size={size} aria-label={ariaLabel} onClick={() => setArmed(true)}>
         {label}
       </Button>
     );
   }
   return (
-    <span className="inline-flex flex-wrap items-center gap-2">
+    <span className="inline-flex flex-wrap items-center justify-end gap-1.5">
       <Button
         type="button"
         variant="danger"

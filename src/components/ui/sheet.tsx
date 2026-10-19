@@ -37,7 +37,7 @@ export function Sheet({ open, onClose, title, children, className }: {
           <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
           <button type="button" onClick={onClose} aria-label="Fechar" className="-mr-2 flex h-10 w-10 items-center justify-center rounded-full bg-muted text-fg-muted hover:bg-muted-2"><X className="h-5 w-5" /></button>
         </div>
-        <div className="pb-safe min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-5 pt-2">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-2">{children}</div>
       </div>
     </div>,
     document.body,

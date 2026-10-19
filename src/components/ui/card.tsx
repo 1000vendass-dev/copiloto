@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
  * dentro do card (busca de veículo, por exemplo) ficaria por baixo do card seguinte.
  */
 export function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("glass relative rounded-3xl p-4 focus-within:z-10 sm:p-5", className)} {...props} />;
+  return <div className={cn("glass relative min-w-0 rounded-3xl p-4 focus-within:z-10 sm:p-5", className)} {...props} />;
 }
 
 export function CardTitle({ className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {

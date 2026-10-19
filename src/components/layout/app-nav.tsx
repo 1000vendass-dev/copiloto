@@ -9,7 +9,18 @@ function isActive(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function Sidebar({ teamName, userName }: { teamName: string; userName: string }) {
+/** Bolinha verde com o nº de leads que têm mensagem nova (aparece no item Leads). */
+function UnreadDot({ n, className }: { n: number; className?: string }) {
+  if (!n) return null;
+  return (
+    <span className={cn("flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-green-500 px-1 text-[10px] font-bold leading-none text-white ring-2 ring-surface", className)}
+      aria-label={`${n} ${n === 1 ? "lead com mensagem nova" : "leads com mensagem nova"}`}>
+      {n > 99 ? "99+" : n}
+    </span>
+  );
+}
+
+export function Sidebar({ teamName, userName, unreadLeads = 0 }: { teamName: string; userName: string; unreadLeads?: number }) {
   const pathname = usePathname();
   return (
     <aside className="glass sticky top-3 m-3 hidden h-[calc(100dvh-1.5rem)] w-60 shrink-0 flex-col rounded-[28px] md:flex">
@@ -31,7 +42,8 @@ export function Sidebar({ teamName, userName }: { teamName: string; userName: st
             )}
           >
             <Icon className="h-[18px] w-[18px]" aria-hidden />
-            {label}
+            <span className="flex-1">{label}</span>
+            {href === "/leads" ? <UnreadDot n={unreadLeads} /> : null}
           </Link>
         ))}
       </nav>
@@ -50,7 +62,7 @@ export function Sidebar({ teamName, userName }: { teamName: string; userName: st
  * Menu do celular: pílula de vidro flutuando sobre o conteúdo. O item ativo vira uma pílula azul com o nome;
  * os outros mostram só o ícone (o nome fica para leitor de tela).
  */
-export function BottomNav() {
+export function BottomNav({ unreadLeads = 0 }: { unreadLeads?: number }) {
   const pathname = usePathname();
   const items = [...NAV_ITEMS.filter((i) => i.mobile), MORE_ITEM];
   const activeHref = items.find((i) => isActive(pathname, i.href))?.href
@@ -70,12 +82,13 @@ export function BottomNav() {
                 aria-label={label}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex h-12 items-center justify-center gap-1.5 rounded-full text-[13px] font-semibold transition-all",
+                  "relative flex h-12 items-center justify-center gap-1.5 rounded-full text-[13px] font-semibold transition-all",
                   active ? "bg-brand text-white shadow-[0_8px_20px_-8px] shadow-brand/70" : "text-fg-muted active:bg-muted",
                 )}
               >
                 <Icon className="h-5 w-5 shrink-0" aria-hidden />
                 {active ? <span className="truncate">{label}</span> : null}
+                {href === "/leads" ? <UnreadDot n={unreadLeads} className={active ? "ml-0.5" : "absolute right-1.5 top-1"} /> : null}
               </Link>
             </li>
           );

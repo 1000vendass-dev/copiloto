@@ -10,7 +10,6 @@ import { discardDraft, markLeadConversationRead, sendWhatsApp, sendWhatsAppVoice
 import type { WaDraft, WaMessage } from "./queries";
 import { fmtSeconds, useVoiceRecorder } from "./voice-recorder";
 
-const REFRESH_MS = 15_000;
 const textareaCls = "w-full resize-none rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand";
 
 function Draft({ draft, leadId }: { draft: WaDraft; leadId: string }) {
@@ -55,11 +54,11 @@ export function WhatsAppChat({ leadId, messages, drafts, enabled = true }: { lea
   const [pending, start] = useTransition();
   const listRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { if (enabled) void markLeadConversationRead(leadId); }, [leadId, enabled]);
+  // card aberto = conversa lida; também quando chega mensagem nova com o card na tela.
+  // (as mensagens novas chegam sozinhas pelo LiveRefresh do layout, em tempo real)
   useEffect(() => {
-    const id = setInterval(() => { if (document.visibilityState === "visible") router.refresh(); }, REFRESH_MS);
-    return () => clearInterval(id);
-  }, [router]);
+    if (enabled && document.visibilityState === "visible") void markLeadConversationRead(leadId);
+  }, [leadId, enabled, messages.length]);
   // rola só a lista (não a página) até a última mensagem
   useEffect(() => { const el = listRef.current; if (el) el.scrollTop = el.scrollHeight; }, [messages.length, drafts.length]);
 

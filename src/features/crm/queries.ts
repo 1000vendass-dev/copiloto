@@ -11,27 +11,46 @@ export function sanitizeSearch(q: string) {
   return q.replace(/[%_\\,()"'*:]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
 }
 
+/**
+ * Leads na ordem do WhatsApp: quem falou por último (qualquer lado) fica em cima.
+ * `unread` = mensagens do cliente ainda não vistas no card, por lead (zera ao abrir o card ou ao responder).
+ */
 export async function listLeads(filters: LeadFilters) {
   const supabase = await createClient();
   let query = supabase
     .from("leads")
     .select("*")
-    .order("next_action_at", { ascending: true, nullsFirst: false })
+    .order("last_contact_at", { ascending: false, nullsFirst: false })
     .order("updated_at", { ascending: false })
     .limit(500);
 
   if (filters.stage && (STAGE_VALUES as string[]).includes(filters.stage)) {
     query = query.eq("stage", filters.stage);
-  } else if (filters.stage !== "todos" && filters.view !== "funil") {
-    query = query.in("stage", OPEN_STAGES); // padrão: só leads em aberto
+  } else if (filters.stage !== "todos" && filters.view === "lista") {
+    query = query.in("stage", OPEN_STAGES); // lista: por padrão só leads em aberto
   }
   if (filters.temperature) query = query.eq("temperature", filters.temperature);
   if (filters.q) {
     const s = sanitizeSearch(filters.q);
     if (s) query = query.or(`name.ilike.%${s}%,phone.ilike.%${s}%,interest.ilike.%${s}%,email.ilike.%${s}%`);
   }
-  const { data, error } = await query;
-  return { leads: (data ?? []) as Lead[], error: error?.message ?? null };
+  const [{ data, error }, unread] = await Promise.all([query, unreadByLead()]);
+  return { leads: (data ?? []) as Lead[], unread, error: error?.message ?? null };
+}
+
+/** { lead_id: nº de mensagens não lidas } das conversas do WhatsApp com algo pendente. */
+export async function unreadByLead(): Promise<Record<string, number>> {
+  const supabase = await createClient();
+  const { data: convs } = await supabase.from("whatsapp_conversations").select("contact_id,unread_count").gt("unread_count", 0);
+  if (!convs?.length) return {};
+  const { data: contacts } = await supabase.from("whatsapp_contacts").select("id,lead_id").in("id", convs.map((c) => c.contact_id));
+  const leadOf = new Map((contacts ?? []).map((c) => [c.id, c.lead_id as string | null]));
+  const out: Record<string, number> = {};
+  for (const c of convs) {
+    const lead = leadOf.get(c.contact_id);
+    if (lead) out[lead] = (out[lead] ?? 0) + (c.unread_count ?? 0);
+  }
+  return out;
 }
 
 export async function getLead(id: string) {

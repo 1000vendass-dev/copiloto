@@ -42,3 +42,13 @@ export function formatTime(iso: string) {
 export function ymdOf(iso: string) {
   return todaySP(new Date(iso));
 }
+
+const dayMonth = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", timeZone: "America/Sao_Paulo" });
+/** Como no WhatsApp: hoje → "14:32", ontem → "Ontem", antes → "17/10". */
+export function whenShort(iso: string) {
+  const day = ymdOf(iso);
+  const today = todaySP();
+  if (day === today) return formatTime(iso);
+  if (day === addDays(today, -1)) return "Ontem";
+  return dayMonth.format(new Date(iso));
+}

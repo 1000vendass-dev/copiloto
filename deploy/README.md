@@ -14,7 +14,8 @@ e **bloqueia** `/api/whatsapp/webhook` (o WAHA chama o app por dentro da rede).
 
 ## Segredos (nunca no Git)
 - `/root/copiloto-app/.env`: `NEXT_PUBLIC_SUPABASE_*`, `WAHA_URL`, `WAHA_API_KEY`, `WAHA_SESSION`, `WAHA_HMAC_SECRET`, `COPILOTO_BRIDGE_URL`, `COPILOTO_BRIDGE_TOKEN`
-- `/root/copiloto-app/.secrets.env`: `SUPABASE_SERVICE_ROLE_KEY` (chave secreta do projeto Copiloto; testada antes de salvar)
+- `/root/copiloto-app/.secrets.env`: `SUPABASE_SERVICE_ROLE_KEY` (chave secreta do projeto Copiloto; testada antes de salvar) e `VAPID_PRIVATE_KEY` (notificações)
+- Notificações (Web Push): `VAPID_PUBLIC_KEY` e `VAPID_SUBJECT` em `/root/copiloto-app/.env`; a privada só no `.secrets.env`. Geradas na própria VPS (nunca passaram pelo chat). Trocar as chaves invalida os aparelhos já ativados (cada um ativa de novo em Configurações).
 - `/root/copiloto-waha/.env`: `WAHA_API_KEY`
 - `/root/copiloto-claude/.env`: `BRIDGE_TOKEN` (o mesmo valor de `COPILOTO_BRIDGE_TOKEN`)
 

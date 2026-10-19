@@ -5,10 +5,12 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle } from "@/components/ui/card";
 import { signOut } from "@/features/auth/actions";
+import { PushSettings } from "@/features/notifications/push-settings";
 import { AppearanceSettings } from "@/features/settings/appearance";
 import { TeamForm } from "@/features/settings/forms";
 import { ACCENT_COOKIE, THEME_COOKIE, parseAccent, parseTheme } from "@/lib/appearance";
 import { getSession } from "@/lib/auth";
+import { pushPublicKey } from "@/lib/push";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Configurações" };
@@ -33,6 +35,10 @@ export default async function ConfiguracoesPage() {
         <Card className="md:col-span-2">
           <CardTitle className="mb-4">Aparência</CardTitle>
           <AppearanceSettings theme={parseTheme(jar.get(THEME_COOKIE)?.value)} accent={parseAccent(jar.get(ACCENT_COOKIE)?.value)} />
+        </Card>
+        <Card className="md:col-span-2">
+          <CardTitle className="mb-3">Notificações</CardTitle>
+          <PushSettings publicKey={pushPublicKey()} />
         </Card>
         <Card>
           <CardTitle className="mb-3">Equipe</CardTitle>

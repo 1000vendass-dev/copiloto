@@ -102,3 +102,4 @@
 - 19/10/2026: Áudio no card: gravar e enviar voz (microfone na caixa de mensagem), ouvir os áudios no balão e transcrição automática só para a IA (container `copiloto-whisper`). 12 áudios antigos guardados e transcritos. Ficha técnica no menu +.
 - 19/10/2026: Novo visual do app inteiro: tema segue o celular (claro limpo / escuro com vidro), azul de destaque, fonte Inter, botões em pílula, cards de vidro, menu inferior em pílula flutuante, janelas flutuantes com alça.
 - 19/10/2026: Configurações > Aparência: tema (automático/claro/escuro) e 6 cores de destaque, salvos no aparelho (cookie). Meu dia com os 4 números em grade 2x2.
+- 19/10/2026: Leads abre no funil, cards na ordem da última conversa (como WhatsApp) com bolinha verde de não lidas; selo no menu Leads. App atualiza sozinho (Supabase Realtime). Notificações no celular (Web Push) ao chegar mensagem de cliente; ativar em Configurações > Notificações.

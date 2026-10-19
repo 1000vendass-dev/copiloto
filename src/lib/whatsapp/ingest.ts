@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { OPEN_STAGES } from "@/features/crm/constants";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { onlyDigits, sameNumber, shortId, toWaId } from "./phone";
+import { pushToTeam } from "@/lib/push";
 import { processAudio } from "./media";
 import { downloadWahaFile, resolveLid, wahaSession } from "./waha";
 
@@ -187,7 +188,31 @@ export async function handleWahaEvent(admin: Admin, evt: Json): Promise<string> 
         .catch((e) => console.error("[whatsapp/audio] baixar:", e instanceof Error ? e.message : e));
     }
   }
+
+  // notificação no celular: só mensagem nova de cliente (não as antigas que o WhatsApp ressincroniza)
+  if (!fromMe && !res.duplicate && Date.now() - sentAt.getTime() < NOTIFY_MAX_AGE_MS) {
+    void notifyIncoming(admin, account.team_id, conv, type, body)
+      .catch((e) => console.error("[push] mensagem:", e instanceof Error ? e.message : e));
+  }
   return res.duplicate ? "duplicate" : "ok";
+}
+
+const NOTIFY_MAX_AGE_MS = 10 * 60 * 1000;
+const PREVIEW: Record<string, string> = { audio: "🎤 Áudio", imagem: "📷 Foto", video: "🎥 Vídeo", documento: "📄 Documento", localizacao: "📍 Localização" };
+
+async function notifyIncoming(admin: Admin, teamId: string, conv: Conversation, type: string, body: string) {
+  const [{ data: contact }, { data: lead }] = await Promise.all([
+    admin.from("whatsapp_contacts").select("categoria,profile_name").eq("id", conv.contactId).maybeSingle(),
+    admin.from("leads").select("name").eq("id", conv.leadId).maybeSingle(),
+  ]);
+  if (contact?.categoria === "spam" || contact?.categoria === "proprio") return;
+  const text = PREVIEW[type] ?? (body.length > 140 ? `${body.slice(0, 137)}…` : body);
+  await pushToTeam(admin, teamId, {
+    title: lead?.name ?? contact?.profile_name ?? "Mensagem nova",
+    body: text,
+    url: `/leads/${conv.leadId}`,
+    tag: `lead-${conv.leadId}`,
+  });
 }
 
 /**

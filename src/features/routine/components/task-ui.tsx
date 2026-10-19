@@ -2,7 +2,8 @@
 
 import { useFormAction } from "@/lib/use-form-action";
 import Link from "next/link";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { Check, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, EmptyState } from "@/components/ui/card";
@@ -15,6 +16,13 @@ import { deleteTask, saveTask } from "../actions";
 import type { TaskRow } from "../queries";
 
 export type LeadOption = { id: string; name: string };
+
+/** Formulário da página /tarefas/nova: ao salvar, volta para a lista. */
+export function NewTaskForm({ leads }: { leads: LeadOption[] }) {
+  const router = useRouter();
+  const done = useCallback(() => router.push("/tarefas"), [router]);
+  return <TaskForm leads={leads} onDone={done} />;
+}
 
 export function TaskForm({ leads, task, onDone }: { leads: LeadOption[]; task?: TaskRow; onDone?: () => void }) {
   const [state, onSubmit, pending] = useFormAction(saveTask);

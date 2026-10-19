@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Plus } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
-import { Alert, Card } from "@/components/ui/card";
-import { TaskForm, TaskRows } from "@/features/routine/components/task-ui";
+import { Button } from "@/components/ui/button";
+import { Alert } from "@/components/ui/card";
+import { TaskRows } from "@/features/routine/components/task-ui";
 import { openLeadOptions } from "@/features/routine/lead-options";
 import { listTasks, taskCounts } from "@/features/routine/queries";
 import { cn } from "@/lib/utils";
@@ -24,7 +26,7 @@ export default async function TarefasPage({ searchParams }: { searchParams: Prom
 
   return (
     <>
-      <PageHeader title="Tarefas" />
+      <PageHeader title="Tarefas" actions={<Link href="/tarefas/nova"><Button><Plus className="h-4 w-4" />Nova tarefa</Button></Link>} />
       <div className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4">
         {VIEWS.map((v) => {
           const n = v.value === "concluidas" ? null : counts[v.value];
@@ -38,12 +40,7 @@ export default async function TarefasPage({ searchParams }: { searchParams: Prom
           );
         })}
       </div>
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          {error ? <Alert>Não foi possível carregar as tarefas.</Alert> : <TaskRows tasks={tasks} leads={leads} />}
-        </div>
-        <Card className="h-fit"><h2 className="mb-3 font-semibold">Nova tarefa</h2><TaskForm leads={leads} /></Card>
-      </div>
+      {error ? <Alert>Não foi possível carregar as tarefas.</Alert> : <TaskRows tasks={tasks} leads={leads} />}
     </>
   );
 }

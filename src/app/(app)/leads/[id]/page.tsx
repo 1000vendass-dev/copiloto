@@ -58,7 +58,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
               </>
             ) : null}
             <Link href={`/propostas/nova?lead=${lead.id}`}><Button variant="outline"><FileText className="h-4 w-4" />Proposta</Button></Link>
-            <Link href={`/agenda?lead=${lead.id}`}><Button variant="outline" size="icon" aria-label="Agendar"><CalendarPlus className="h-4 w-4" /></Button></Link>
+            <Link href={`/agenda/novo?lead=${lead.id}`}><Button variant="outline" size="icon" aria-label="Agendar"><CalendarPlus className="h-4 w-4" /></Button></Link>
             <Link href={`/leads/${lead.id}/editar`}><Button variant="outline"><Pencil className="h-4 w-4" />Editar</Button></Link>
           </>
         }

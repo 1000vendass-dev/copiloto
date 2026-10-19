@@ -2,7 +2,8 @@
 
 import { useFormAction } from "@/lib/use-form-action";
 import Link from "next/link";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert, EmptyState } from "@/components/ui/card";
@@ -24,6 +25,13 @@ export const APPT_STATUS = [
   { value: "agendado", label: "Agendado" }, { value: "confirmado", label: "Confirmado" }, { value: "realizado", label: "Realizado" },
   { value: "cancelado", label: "Cancelado" }, { value: "nao_compareceu", label: "Não compareceu" },
 ] as const;
+
+/** Formulário da página /agenda/novo: ao salvar, volta para a agenda no dia escolhido. */
+export function NewAppointmentForm({ leads, defaultDate, defaultLeadId }: { leads: LeadOption[]; defaultDate: string; defaultLeadId?: string }) {
+  const router = useRouter();
+  const done = useCallback(() => router.push(`/agenda?d=${defaultDate}`), [router, defaultDate]);
+  return <AppointmentForm leads={leads} defaultDate={defaultDate} defaultLeadId={defaultLeadId} onDone={done} />;
+}
 
 export function AppointmentForm({ leads, appt, defaultDate, defaultLeadId, onDone }: {
   leads: LeadOption[]; appt?: AppointmentRow; defaultDate?: string; defaultLeadId?: string; onDone?: () => void;

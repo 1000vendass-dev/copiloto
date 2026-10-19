@@ -16,6 +16,7 @@ import { statusLabel } from "@/features/inventory/constants";
 import { ContactTypeControl } from "@/features/whatsapp/contact-type-control";
 import { getLeadWhatsApp } from "@/features/whatsapp/queries";
 import { WhatsAppChat } from "@/features/whatsapp/whatsapp-chat";
+import { LeadSharePanel } from "@/features/shares/lead-share";
 import { getSession } from "@/lib/auth";
 import { formatBRL, formatDateTime } from "@/lib/utils";
 
@@ -94,6 +95,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
       chat={<WhatsAppChat leadId={lead.id} messages={whatsapp.messages} drafts={whatsapp.drafts} enabled={whatsapp.enabled} />}
       profile={profile}
       panels={{
+        ficha: <LeadSharePanel leadId={lead.id} canSend={whatsapp.enabled && Boolean(lead.phone)} initial={vehicle && vehicle.status !== "vendido" ? { id: vehicle.id, label: `${vehicle.brand} ${vehicle.model} ${vehicle.version ?? ""} ${vehicle.year_model ?? ""}`.replace(/\s+/g, " ").trim(), price: vehicle.sale_price == null ? null : Number(vehicle.sale_price) } : null} />,
         notas: <div className="space-y-4"><NoteForm {...target} /><NoteList notes={notes} userId={session.userId} /></div>,
         tarefas: <div className="space-y-4"><TaskList tasks={tasks} /><div className="border-t border-border pt-4"><FollowUpForm {...target} /></div></div>,
         contato: <ContactForm {...target} />,

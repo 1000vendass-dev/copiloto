@@ -7,7 +7,9 @@ import { formatBRL } from "@/lib/utils";
 import { searchVehicleOptions, type VehicleOption } from "./picker-actions";
 
 /** Campo de formulário: busca veículo do estoque e grava o id em <input name={name}>. */
-export function VehiclePicker({ name, initial }: { name: string; initial?: { id: string; label: string } | null }) {
+type Picked = { id: string; label: string; price?: number | null };
+
+export function VehiclePicker({ name, initial, onChange }: { name: string; initial?: Picked | null; onChange?: (v: Picked | null) => void }) {
   const [selected, setSelected] = useState(initial ?? null);
   const [q, setQ] = useState("");
   const [options, setOptions] = useState<VehicleOption[]>([]);
@@ -28,7 +30,7 @@ export function VehiclePicker({ name, initial }: { name: string; initial?: { id:
       {selected ? (
         <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-muted px-3 py-2 text-sm">
           <span className="truncate">{selected.label}</span>
-          <button type="button" aria-label="Remover veículo" onClick={() => setSelected(null)} className="text-fg-muted hover:text-fg">
+          <button type="button" aria-label="Remover veículo" onClick={() => { setSelected(null); onChange?.(null); }} className="text-fg-muted hover:text-fg">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -44,7 +46,7 @@ export function VehiclePicker({ name, initial }: { name: string; initial?: { id:
                   <button
                     type="button"
                     className="flex w-full justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-muted"
-                    onClick={() => { setSelected({ id: o.id, label: o.label }); setQ(""); }}
+                    onClick={() => { setSelected({ id: o.id, label: o.label }); setQ(""); onChange?.({ id: o.id, label: o.label, price: o.price }); }}
                   >
                     <span className="truncate">{o.label}</span>
                     <span className="shrink-0 text-fg-muted">{o.status === "disponivel" ? formatBRL(o.price) : o.status}</span>

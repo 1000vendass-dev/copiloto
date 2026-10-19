@@ -2,15 +2,16 @@
 
 import Link from "next/link";
 import { useCallback, useState } from "react";
-import { ArrowLeft, CalendarPlus, CheckSquare, MessageCircle, NotebookPen, Phone, PhoneCall, Plus, Sparkles, Tag, UserRound } from "lucide-react";
+import { ArrowLeft, CalendarPlus, CarFront, CheckSquare, MessageCircle, NotebookPen, Phone, PhoneCall, Plus, Sparkles, Tag, UserRound } from "lucide-react";
 import { Sheet } from "@/components/ui/sheet";
 import { CopilotoChat } from "@/features/ai/chat";
 import { cn } from "@/lib/utils";
 
-type Panel = "notas" | "tarefas" | "contato" | "tags";
+type Panel = "ficha" | "notas" | "tarefas" | "contato" | "tags";
 type Open = Panel | "perfil" | "ia" | null;
 
 const PANELS: { key: Panel; label: string; icon: typeof Plus }[] = [
+  { key: "ficha", label: "Ficha técnica", icon: CarFront },
   { key: "notas", label: "Notas", icon: NotebookPen },
   { key: "tarefas", label: "Follow-ups e tarefas", icon: CheckSquare },
   { key: "contato", label: "Registrar contato", icon: PhoneCall },

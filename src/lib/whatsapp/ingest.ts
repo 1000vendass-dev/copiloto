@@ -268,7 +268,7 @@ export async function linkLeadToWhatsApp(teamId: string, leadId: string, phone: 
  */
 export async function fillLeadName(admin: Admin, leadId: string, name: string | null | undefined): Promise<string | null> {
   const clean = name?.trim().slice(0, 120);
-  if (!clean || isPlaceholderName(clean)) return null;
+  if (!clean || isPlaceholderName(clean) || !/\p{L}/u.test(clean)) return null; // perfil sem letra (".", emoji) não serve
   const { data: lead } = await admin.from("leads").select("name").eq("id", leadId).maybeSingle();
   if (!lead || !isPlaceholderName(lead.name)) return null;
   const { error } = await admin.from("leads").update({ name: clean }).eq("id", leadId);

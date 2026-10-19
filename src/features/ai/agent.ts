@@ -13,7 +13,21 @@ type ToolResultBlock = { type: "tool_result"; tool_use_id: string; content: stri
 type ContentBlock = TextBlock | ToolUseBlock | ToolResultBlock;
 export type ChatMessage = { role: "user" | "assistant"; content: string | ContentBlock[] };
 
-export type ActionTrace = { tool: string; input: Record<string, unknown>; ok: boolean; status: string; summary: string };
+/** `lead`: lead criado ou atualizado pela ação; o chat mostra um botão para abrir a conversa dele. */
+export type ActionTrace = {
+  tool: string; input: Record<string, unknown>; ok: boolean; status: string; summary: string;
+  lead?: { id: string; name: string; created: boolean };
+};
+
+/** Lead que a ferramenta criou/atualizou (create_lead, update_lead, registrar_atendimento). */
+function leadRef(result: Record<string, unknown>): ActionTrace["lead"] | null {
+  const rec = (v: unknown) => (v && typeof v === "object" ? (v as Record<string, unknown>) : null);
+  const pick = rec(result.criado) ?? rec(result.atualizado) ?? rec(result.lead);
+  const id = pick?.id;
+  const name = pick?.nome;
+  if (typeof id !== "string" || typeof name !== "string") return null;
+  return { id, name, created: Boolean(result.criado) || pick?.criado === true };
+}
 
 export class CopilotoUnavailable extends Error {}
 
@@ -218,7 +232,8 @@ export async function runCopiloto(opts: {
         result = { ok: false, error: e instanceof Error ? e.message.slice(0, 200) : "erro inesperado" };
       }
       const status = result.status === "needs_confirmation" ? "pendente_confirmacao" : result.ok === false ? "erro" : "sucesso";
-      actions.push({ tool: use.name, input: use.input, ok: result.ok !== false, status, summary: summarize(result) });
+      const lead = status === "sucesso" ? leadRef(result) : null;
+      actions.push({ tool: use.name, input: use.input, ok: result.ok !== false, status, summary: summarize(result), ...(lead ? { lead } : {}) });
       // auditoria (falha de log não interrompe a conversa)
       await opts.ctx.supabase.from("ai_action_logs").insert({
         team_id: opts.ctx.teamId, user_id: opts.ctx.userId, command: opts.userText.slice(0, 2000), tool: use.name,

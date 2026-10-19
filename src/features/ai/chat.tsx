@@ -2,12 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Mic, Send, Sparkles, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { MessageCircle, Mic, Send, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
-type Action = { tool: string; ok: boolean; status: string; summary: string };
+type Action = { tool: string; ok: boolean; status: string; summary: string; lead?: { id: string; name: string; created: boolean } };
 type Msg = { id?: string; role: "user" | "assistant"; content: string; meta?: { actions?: Action[] }; pending?: boolean; error?: boolean };
 
 const TOOL_LABEL: Record<string, string> = {
@@ -178,6 +179,7 @@ export function CopilotoChat({ lead, className }: { lead?: { id: string; name: s
                     ))}
                   </div>
                 ) : null}
+                <LeadButtons actions={m.meta?.actions} skip={leadId} />
               </div>
             </div>
           ))
@@ -201,6 +203,24 @@ export function CopilotoChat({ lead, className }: { lead?: { id: string; name: s
         ) : null}
         <Button type="submit" size="icon" aria-label="Enviar" disabled={loading || !input.trim()}><Send className="h-4 w-4" /></Button>
       </form>
+    </div>
+  );
+}
+
+/** Botão para abrir a conversa de cada lead que a IA criou ou atualizou nesta resposta. */
+function LeadButtons({ actions, skip }: { actions?: Action[]; skip?: string }) {
+  const leads = [...new Map((actions ?? []).filter((a) => a.lead && a.lead.id !== skip).map((a) => [a.lead!.id, a.lead!])).values()];
+  if (!leads.length) return null;
+  return (
+    <div className="mt-2 flex flex-col gap-1.5">
+      {leads.map((l) => (
+        <Link key={l.id} href={`/leads/${l.id}`}
+          className="flex items-center gap-2 rounded-2xl bg-brand px-3.5 py-2.5 text-sm font-semibold text-white shadow-[0_8px_20px_-10px] shadow-brand/70 active:scale-[0.98]">
+          <MessageCircle className="h-4 w-4 shrink-0" aria-hidden />
+          <span className="min-w-0 flex-1 truncate">Abrir conversa · {l.name}</span>
+          {l.created ? <span className="shrink-0 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-bold uppercase">novo</span> : null}
+        </Link>
+      ))}
     </div>
   );
 }

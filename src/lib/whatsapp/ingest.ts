@@ -4,7 +4,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { OPEN_STAGES } from "@/features/crm/constants";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { onlyDigits, sameNumber, shortId, toWaId } from "./phone";
-import { resolveLid, wahaSession } from "./waha";
+import { processAudio } from "./media";
+import { downloadWahaFile, resolveLid, wahaSession } from "./waha";
 
 type Admin = SupabaseClient;
 type Json = Record<string, unknown>;
@@ -170,9 +171,22 @@ export async function handleWahaEvent(admin: Admin, evt: Json): Promise<string> 
   const pushName = fromMe ? null : (asStr(data?.pushName) ?? asStr(data?.notifyName));
 
   const conv = await ensureConversation(admin, account, waId, pushName);
+  const externalId = rawId ? shortId(rawId) : null;
   const res = await recordMessage(admin, account, conv, {
-    externalId: rawId ? shortId(rawId) : null, direction: fromMe ? "saida" : "entrada", type, body, sentAt,
+    externalId, direction: fromMe ? "saida" : "entrada", type, body, sentAt,
   });
+
+  // áudio (do cliente ou enviado pelo celular): baixa já, porque o WAHA apaga o arquivo em ~3 min
+  const mediaUrl = asStr(asRec(p.media)?.url);
+  if (type === "audio" && mediaUrl && externalId) {
+    const { data: row } = await admin.from("whatsapp_messages").select("id,media_path")
+      .eq("conversation_id", conv.id).eq("external_id", externalId).maybeSingle();
+    if (row && !row.media_path) {
+      void downloadWahaFile(mediaUrl)
+        .then((f) => processAudio(admin, { id: row.id, teamId: account.team_id }, f.bytes, f.mimetype))
+        .catch((e) => console.error("[whatsapp/audio] baixar:", e instanceof Error ? e.message : e));
+    }
+  }
   return res.duplicate ? "duplicate" : "ok";
 }
 

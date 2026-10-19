@@ -2,12 +2,13 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Send, Sparkles, Trash2 } from "lucide-react";
+import { Mic, Send, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatTime, labelDay, ymdOf } from "@/lib/dates";
 import { cn } from "@/lib/utils";
-import { discardDraft, markLeadConversationRead, sendWhatsApp } from "./actions";
+import { discardDraft, markLeadConversationRead, sendWhatsApp, sendWhatsAppVoice } from "./actions";
 import type { WaDraft, WaMessage } from "./queries";
+import { fmtSeconds, useVoiceRecorder } from "./voice-recorder";
 
 const REFRESH_MS = 15_000;
 const textareaCls = "w-full resize-none rounded-lg border border-border bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand";
@@ -70,6 +71,19 @@ export function WhatsAppChat({ leadId, messages, drafts, enabled = true }: { lea
     router.refresh();
   });
 
+  const voice = useVoiceRecorder();
+  const sendVoice = () => start(async () => {
+    setError(null);
+    const blob = await voice.stop();
+    if (!blob) return;
+    const fd = new FormData();
+    fd.append("leadId", leadId);
+    fd.append("audio", new File([blob], "voz", { type: blob.type }));
+    const r = await sendWhatsAppVoice(fd);
+    if (!r.ok) { setError(r.error ?? "Erro ao enviar o áudio."); return; }
+    router.refresh();
+  });
+
   let lastDay = "";
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -87,7 +101,9 @@ export function WhatsAppChat({ leadId, messages, drafts, enabled = true }: { lea
               {sep ? <div className="my-3 flex justify-center"><span className="rounded-full bg-muted px-3 py-0.5 text-[11px] font-medium text-fg-muted">{labelDay(day)}</span></div> : null}
               <div className={cn("flex", m.direction === "saida" ? "justify-end" : "justify-start")}>
                 <div className={cn("max-w-[85%] rounded-2xl px-3 py-1.5 text-sm shadow-sm", m.direction === "saida" ? "rounded-br-sm bg-brand text-white" : "rounded-bl-sm bg-surface")}>
-                  <p className="whitespace-pre-wrap break-words">{m.body}</p>
+                  {m.type === "audio" && m.media_path
+                    ? <audio controls preload="none" src={`/api/whatsapp/media/${m.id}`} className="my-1 h-10 w-60 max-w-full" aria-label="Áudio" />
+                    : <p className="whitespace-pre-wrap break-words">{m.body}</p>}
                   <div className={cn("text-right text-[10px]", m.direction === "saida" ? "text-white/70" : "text-fg-muted")}>{formatTime(m.sent_at)}</div>
                 </div>
               </div>
@@ -99,14 +115,32 @@ export function WhatsAppChat({ leadId, messages, drafts, enabled = true }: { lea
 
       {enabled ? (
         <div className="border-t border-border bg-surface px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-          {error ? <p className="px-1 pb-1 text-sm text-red-600" role="alert">{error}</p> : null}
-          <div className="flex items-end gap-2">
-            <textarea
-              className="max-h-32 min-h-11 flex-1 resize-none rounded-3xl border border-border bg-bg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand"
-              rows={1} placeholder="Mensagem" aria-label="Mensagem de WhatsApp" value={text} onChange={(e) => setText(e.target.value)} disabled={pending}
-            />
-            <Button size="icon" className="h-11 w-11 shrink-0 rounded-full" onClick={send} disabled={pending || !text.trim()} aria-label="Enviar"><Send className="h-5 w-5" /></Button>
-          </div>
+          {error || voice.error ? <p className="px-1 pb-1 text-sm text-red-600" role="alert">{error ?? voice.error}</p> : null}
+          {voice.recording ? (
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={voice.cancel} aria-label="Descartar áudio" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-fg-muted active:bg-muted"><Trash2 className="h-5 w-5" /></button>
+              <div className="flex h-11 flex-1 items-center gap-2 rounded-3xl border border-border bg-bg px-4" aria-live="polite">
+                <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-red-500" aria-hidden />
+                <span className="tabular-nums">{fmtSeconds(voice.seconds)}</span>
+                <span className="truncate text-sm text-fg-muted">Gravando…</span>
+              </div>
+              <Button size="icon" className="h-11 w-11 shrink-0 rounded-full" onClick={sendVoice} disabled={pending} aria-label="Enviar áudio"><Send className="h-5 w-5" /></Button>
+            </div>
+          ) : (
+            <div className="flex items-end gap-2">
+              <textarea
+                className="max-h-32 min-h-11 flex-1 resize-none rounded-3xl border border-border bg-bg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand"
+                rows={1} placeholder="Mensagem" aria-label="Mensagem de WhatsApp" value={text} onChange={(e) => setText(e.target.value)} disabled={pending}
+              />
+              {text.trim() ? (
+                <Button size="icon" className="h-11 w-11 shrink-0 rounded-full" onClick={send} disabled={pending} aria-label="Enviar"><Send className="h-5 w-5" /></Button>
+              ) : (
+                <Button size="icon" className="h-11 w-11 shrink-0 rounded-full" onClick={() => void voice.start()} disabled={pending} aria-label="Gravar áudio">
+                  {pending ? <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-white" aria-hidden /> : <Mic className="h-5 w-5" />}
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       ) : null}
     </div>

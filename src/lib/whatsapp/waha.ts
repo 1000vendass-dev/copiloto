@@ -29,6 +29,31 @@ export async function resolveLid(session: string, lid: string): Promise<string |
 
 export async function sendText(session: string, chatId: string, text: string): Promise<{ id: string | null }> {
   const data = await waha("/api/sendText", { method: "POST", body: JSON.stringify({ session, chatId, text }) });
+  return { id: messageId(data) };
+}
+
+/** Mensagem de voz. `convert` faz o WAHA converter (webm/mp4 do navegador) para ogg/opus do WhatsApp. */
+export async function sendVoice(session: string, chatId: string, audio: Uint8Array, mimetype: string): Promise<{ id: string | null }> {
+  const data = await waha("/api/sendVoice", {
+    method: "POST",
+    body: JSON.stringify({ session, chatId, convert: true, file: { mimetype, filename: "voz", data: Buffer.from(audio).toString("base64") } }),
+  });
+  return { id: messageId(data) };
+}
+
+/** Baixa um arquivo de mídia do WAHA (ele apaga os arquivos em ~3 min, por isso baixar na hora). */
+export async function downloadWahaFile(url: string): Promise<{ bytes: Uint8Array; mimetype: string }> {
+  const key = process.env.WAHA_API_KEY;
+  if (!key) throw new Error("WAHA_API_KEY ausente.");
+  const base = (process.env.WAHA_URL ?? "http://127.0.0.1:3031").replace(/\/$/, "");
+  const path = new URL(url).pathname; // a URL vem com o host interno do WAHA ("localhost:3000")
+  if (!path.startsWith("/api/files/")) throw new Error("URL de mídia inesperada.");
+  const res = await fetch(`${base}${path}`, { headers: { "x-api-key": key }, signal: AbortSignal.timeout(30_000) });
+  if (!res.ok) throw new Error(`WAHA respondeu ${res.status} ao baixar mídia`);
+  return { bytes: new Uint8Array(await res.arrayBuffer()), mimetype: (res.headers.get("content-type") ?? "application/octet-stream").split(";")[0] };
+}
+
+function messageId(data: Record<string, unknown>): string | null {
   const rec = (v: unknown) => (v && typeof v === "object" ? (v as Record<string, unknown>) : null);
   const raw = data.id as unknown;
   const candidates: unknown[] = [
@@ -37,6 +62,5 @@ export async function sendText(session: string, chatId: string, text: string): P
     rec(rec(data._data)?.key)?.id,
     rec(rec(data._data)?.id)?.id,
   ];
-  const id = candidates.find((c): c is string => typeof c === "string" && c.length > 0) ?? null;
-  return { id };
+  return candidates.find((c): c is string => typeof c === "string" && c.length > 0) ?? null;
 }

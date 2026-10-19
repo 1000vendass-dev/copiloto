@@ -9,7 +9,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { ensureConversation, findAccount, recordMessage } from "@/lib/whatsapp/ingest";
 import { onlyDigits, shortId, toWaId } from "@/lib/whatsapp/phone";
-import { sendText, wahaSession } from "@/lib/whatsapp/waha";
+import { saveAudio, transcribeMessage } from "@/lib/whatsapp/media";
+import { sendText, sendVoice, wahaSession } from "@/lib/whatsapp/waha";
 import { CONTACT_TYPES, NOT_CUSTOMER_PREFIX } from "./contact-types";
 
 export type WaResult = { ok: boolean; error?: string };
@@ -21,39 +22,48 @@ const SEND_GAP_MS = 3000;
  * Envia UMA mensagem pelo WhatsApp do Copiloto. Só roda por ação explícita do vendedor logado
  * (botão Enviar). A IA não chama esta função: ela só cria rascunhos.
  */
-export async function sendWhatsApp(leadId: string, text: string, draftId?: string): Promise<WaResult> {
+/** Prepara a conversa do lead para enviar (sessão, conta, número, intervalo mínimo entre envios). */
+async function openChat(leadId: string) {
   const session = await getSession();
-  const body = text.trim();
-  if (!uuid.safeParse(leadId).success) return { ok: false, error: "Lead inválido." };
-  if (!body) return { ok: false, error: "Escreva a mensagem." };
-  if (body.length > 4000) return { ok: false, error: "Mensagem muito longa (máximo 4000 caracteres)." };
-
+  if (!uuid.safeParse(leadId).success) return { error: "Lead inválido." } as const;
   const supabase = await createClient();
   const { data: lead } = await supabase.from("leads").select("id,phone").eq("id", leadId).maybeSingle();
-  if (!lead) return { ok: false, error: "Lead não encontrado." };
+  if (!lead) return { error: "Lead não encontrado." } as const;
 
   const admin = createAdminClient();
   const waSession = wahaSession();
   const account = await findAccount(admin, waSession, session.teamId);
-  if (!account) return { ok: false, error: "WhatsApp não configurado nesta equipe." };
+  if (!account) return { error: "WhatsApp não configurado nesta equipe." } as const;
 
   const { data: contact } = await admin.from("whatsapp_contacts").select("wa_id").eq("account_id", account.id).eq("lead_id", leadId).limit(1).maybeSingle();
   const waId = contact?.wa_id ?? toWaId(lead.phone);
-  if (!waId) return { ok: false, error: "O lead não tem um telefone válido." };
+  if (!waId) return { error: "O lead não tem um telefone válido." } as const;
 
   const conv = await ensureConversation(admin, account, waId, null, leadId);
   const { data: lastOut } = await admin.from("whatsapp_messages").select("created_at").eq("conversation_id", conv.id).eq("direction", "saida")
     .order("created_at", { ascending: false }).limit(1).maybeSingle();
   if (lastOut && Date.now() - new Date(lastOut.created_at).getTime() < SEND_GAP_MS) {
-    return { ok: false, error: "Aguarde alguns segundos antes de enviar outra mensagem." };
+    return { error: "Aguarde alguns segundos antes de enviar outra mensagem." } as const;
   }
+  return { supabase, admin, account, conv, waSession, chatId: `${onlyDigits(waId)}@c.us` } as const;
+}
+
+const SEND_FAILED = "Não consegui enviar. Confira se o WhatsApp do Copiloto está conectado.";
+
+export async function sendWhatsApp(leadId: string, text: string, draftId?: string): Promise<WaResult> {
+  const body = text.trim();
+  if (!body) return { ok: false, error: "Escreva a mensagem." };
+  if (body.length > 4000) return { ok: false, error: "Mensagem muito longa (máximo 4000 caracteres)." };
+  const chat = await openChat(leadId);
+  if ("error" in chat) return { ok: false, error: chat.error };
+  const { supabase, admin, account, conv, waSession, chatId } = chat;
 
   let sent: { id: string | null };
   try {
-    sent = await sendText(waSession, `${onlyDigits(waId)}@c.us`, body);
+    sent = await sendText(waSession, chatId, body);
   } catch (e) {
     console.error("[whatsapp/send]", e instanceof Error ? e.message : e);
-    return { ok: false, error: "Não consegui enviar. Confira se o WhatsApp do Copiloto está conectado." };
+    return { ok: false, error: SEND_FAILED };
   }
 
   await recordMessage(admin, account, conv, {
@@ -61,6 +71,45 @@ export async function sendWhatsApp(leadId: string, text: string, draftId?: strin
   });
   if (draftId && uuid.safeParse(draftId).success) {
     await supabase.from("whatsapp_drafts").update({ status: "enviado" }).eq("id", draftId).eq("lead_id", leadId).eq("status", "pendente");
+  }
+  revalidatePath(`/leads/${leadId}`);
+  return { ok: true };
+}
+
+const VOICE_TYPES = ["audio/webm", "audio/ogg", "audio/mp4", "audio/mpeg", "audio/aac", "audio/wav"];
+const VOICE_MAX = 12 * 1024 * 1024;
+
+/** Envia o áudio gravado no card como mensagem de voz. Só por toque do vendedor; a IA não envia. */
+export async function sendWhatsAppVoice(formData: FormData): Promise<WaResult> {
+  const leadId = String(formData.get("leadId") ?? "");
+  const file = formData.get("audio");
+  if (!(file instanceof File) || !file.size) return { ok: false, error: "Áudio vazio." };
+  if (file.size > VOICE_MAX) return { ok: false, error: "Áudio muito longo." };
+  const mimetype = file.type.split(";")[0].trim().toLowerCase();
+  if (!VOICE_TYPES.includes(mimetype)) return { ok: false, error: "Formato de áudio não suportado neste aparelho." };
+
+  const chat = await openChat(leadId);
+  if ("error" in chat) return { ok: false, error: chat.error };
+  const { admin, account, conv, waSession, chatId } = chat;
+  const bytes = new Uint8Array(await file.arrayBuffer());
+
+  let sent: { id: string | null };
+  try {
+    sent = await sendVoice(waSession, chatId, bytes, mimetype);
+  } catch (e) {
+    console.error("[whatsapp/voice]", e instanceof Error ? e.message : e);
+    return { ok: false, error: SEND_FAILED };
+  }
+
+  const externalId = sent.id ? shortId(sent.id) : null;
+  await recordMessage(admin, account, conv, { externalId, direction: "saida", type: "audio", body: "[áudio]", sentAt: new Date() });
+  const q = admin.from("whatsapp_messages").select("id").eq("conversation_id", conv.id).eq("direction", "saida").eq("type", "audio");
+  const { data: row } = await (externalId ? q.eq("external_id", externalId) : q.order("created_at", { ascending: false }).limit(1)).maybeSingle();
+  // guarda o arquivo para ouvir já; a transcrição (só para a IA) termina em segundo plano
+  if (row) {
+    const msg = { id: row.id, teamId: account.team_id };
+    await saveAudio(admin, msg, bytes, mimetype);
+    void transcribeMessage(admin, msg, bytes, mimetype);
   }
   revalidatePath(`/leads/${leadId}`);
   return { ok: true };

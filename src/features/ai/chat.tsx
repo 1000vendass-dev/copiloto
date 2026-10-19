@@ -142,7 +142,7 @@ export function CopilotoChat({ lead, className }: { lead?: { id: string; name: s
   }
 
   return (
-    <div className={cn("flex flex-col", className ?? "h-[calc(100dvh-10rem)] md:h-[calc(100dvh-6rem)]")}>
+    <div className={cn("flex flex-col", className ?? "h-[calc(100dvh-13rem)] md:h-[calc(100dvh-7rem)]")}>
       {!configured ? <div className="mb-3"><Alert kind="info">O Copiloto ainda não foi ativado: falta a chave da IA (ANTHROPIC_API_KEY) na Vercel. O resto do app funciona normalmente.</Alert></div> : null}
       {loadError ? <div className="mb-3"><Alert>{loadError}</Alert></div> : null}
 
@@ -165,8 +165,8 @@ export function CopilotoChat({ lead, className }: { lead?: { id: string; name: s
         ) : (
           messages.map((m, i) => (
             <div key={m.id ?? i} className={cn("flex", m.role === "user" ? "justify-end" : "justify-start")}>
-              <div className={cn("max-w-[88%] rounded-2xl px-4 py-2.5 text-sm",
-                m.role === "user" ? "bg-brand text-white" : m.error ? "border border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200" : "border border-border bg-surface")}>
+              <div className={cn("max-w-[88%] rounded-3xl px-4 py-2.5 text-[15px] leading-snug",
+                m.role === "user" ? "bg-brand text-white" : m.error ? "border border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200" : "glass")}>
                 {m.pending ? <span className="inline-flex items-center gap-2 text-fg-muted"><span className="h-2 w-2 animate-pulse rounded-full bg-brand" />Consultando…</span> : <Rich text={m.content} />}
                 {m.meta?.actions?.length ? (
                   <div className="mt-2 flex flex-wrap gap-1 border-t border-border pt-2">
@@ -185,7 +185,7 @@ export function CopilotoChat({ lead, className }: { lead?: { id: string; name: s
         <div ref={endRef} />
       </div>
 
-      <form className="flex items-end gap-2 border-t border-border pt-3" onSubmit={(e) => { e.preventDefault(); send(input); }}>
+      <form className="flex items-end gap-2 pt-3" onSubmit={(e) => { e.preventDefault(); send(input); }}>
         {messages.length ? <Button type="button" variant="ghost" size="icon" aria-label="Limpar conversa" title="Limpar conversa" onClick={clear}><Trash2 className="h-4 w-4" /></Button> : null}
         <textarea
           value={input}
@@ -194,7 +194,7 @@ export function CopilotoChat({ lead, className }: { lead?: { id: string; name: s
           rows={1}
           placeholder="Ex.: Falei com a Maria, quer SUV até 120 mil…"
           aria-label="Mensagem para o Copiloto"
-          className="max-h-40 min-h-11 flex-1 resize-none rounded-xl border border-border bg-surface px-3 py-2.5 text-base focus:outline-none focus:ring-2 focus:ring-brand"
+          className="glass-float max-h-40 min-h-12 flex-1 resize-none rounded-3xl px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-brand/40"
         />
         {speechOk ? (
           <Button type="button" variant={listening ? "danger" : "outline"} size="icon" aria-label={listening ? "Parar de ouvir" : "Falar"} onClick={toggleMic}><Mic className="h-4 w-4" /></Button>

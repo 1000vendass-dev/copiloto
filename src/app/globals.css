@@ -1,11 +1,12 @@
 @import "tailwindcss";
 
-@custom-variant dark (&:where(.dark, .dark *));
+/* O tema segue o celular: claro de dia, escuro à noite (os utilitários dark: também). */
+@custom-variant dark (@media (prefers-color-scheme: dark));
 
 @theme {
-  --color-brand: #2563eb;
-  --color-brand-600: #1d4ed8;
-  --color-brand-700: #1e40af;
+  --color-brand: var(--brand);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
   --color-bg: var(--bg);
   --color-surface: var(--surface);
   --color-muted: var(--muted);
@@ -13,35 +14,99 @@
   --color-border: var(--border);
   --color-fg: var(--fg);
   --color-fg-muted: var(--fg-muted);
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
+/* Claro: limpo, branco sobre cinza-azulado, azul de destaque */
 :root {
-  --bg: #f6f7f9;
+  --brand: #2563eb;
+  --brand-600: #1d4ed8;
+  --brand-700: #1e40af;
+  --bg: #f2f4f8;
   --surface: #ffffff;
-  --muted: #eef0f3;
-  --muted-2: #e2e5ea;
-  --border: #dde1e7;
-  --fg: #111827;
-  --fg-muted: #6b7280;
+  --muted: #eef1f6;
+  --muted-2: #e2e7ef;
+  --border: #e3e8ef;
+  --fg: #0f172a;
+  --fg-muted: #64748b;
+  --glass-blur: none;
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.04), 0 10px 30px -18px rgb(15 23 42 / 0.25);
+  --shadow-float: 0 12px 40px -12px rgb(15 23 42 / 0.30), 0 2px 6px rgb(15 23 42 / 0.06);
+  --glow-1: rgb(37 99 235 / 0.07);
+  --glow-2: rgb(99 102 241 / 0.05);
   color-scheme: light;
 }
 
+/* Escuro: vidro fosco sobre fundo quase preto com brilho azul (estilo Pane) */
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0b0f16;
-    --surface: #121823;
-    --muted: #1b2330;
-    --muted-2: #243042;
-    --border: #263041;
-    --fg: #e8ecf2;
-    --fg-muted: #94a0b2;
+    --brand: #3b82f6;
+    --brand-600: #2563eb;
+    --brand-700: #1d4ed8;
+    --bg: #07090e;
+    --surface: rgb(24 29 40 / 0.72);
+    --muted: rgb(255 255 255 / 0.06);
+    --muted-2: rgb(255 255 255 / 0.11);
+    --border: rgb(255 255 255 / 0.09);
+    --fg: #eef2f8;
+    --fg-muted: #93a0b4;
+    --glass-blur: blur(22px) saturate(160%);
+    --shadow-card: inset 0 1px 0 rgb(255 255 255 / 0.06), 0 18px 40px -24px rgb(0 0 0 / 0.8);
+    --shadow-float: inset 0 1px 0 rgb(255 255 255 / 0.08), 0 20px 50px -12px rgb(0 0 0 / 0.75);
+    --glow-1: rgb(59 130 246 / 0.20);
+    --glow-2: rgb(139 92 246 / 0.14);
     color-scheme: dark;
   }
 }
 
-html, body { background: var(--bg); color: var(--fg); }
-body { -webkit-tap-highlight-color: transparent; }
+html { background: var(--bg); color: var(--fg); }
+body {
+  color: var(--fg);
+  background:
+    radial-gradient(55rem 40rem at 0% -10%, var(--glow-1), transparent 60%),
+    radial-gradient(45rem 40rem at 110% 105%, var(--glow-2), transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
+  -webkit-tap-highlight-color: transparent;
+}
 /* evita zoom automático no iOS ao focar campos */
 input, select, textarea { font-size: 16px; }
 .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+
+/* Superfície de vidro: cards, janelas flutuantes, menus. No claro é um branco sólido com sombra suave. */
+@utility glass {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-card);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+}
+@utility glass-float {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-float);
+  -webkit-backdrop-filter: blur(24px) saturate(170%);
+  backdrop-filter: blur(24px) saturate(170%);
+}
+@media (prefers-color-scheme: light) {
+  .glass-float { background-color: rgb(255 255 255 / 0.86); }
+}
+
+/* listas que rolam de lado (filtros) sem barra visível */
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .animate-sheet { animation: sheet-up 0.22s cubic-bezier(0.2, 0.8, 0.2, 1); }
+  .animate-pop { animation: pop-in 0.16s ease-out; }
+}
+@keyframes sheet-up { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes pop-in { from { transform: scale(0.96) translateY(6px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* mesmo fundo do body, para telas cheias (card do lead) que cobrem a página */
+.app-bg {
+  background:
+    radial-gradient(55rem 40rem at 0% -10%, var(--glow-1), transparent 60%),
+    radial-gradient(45rem 40rem at 110% 105%, var(--glow-2), transparent 60%),
+    var(--bg);
+}

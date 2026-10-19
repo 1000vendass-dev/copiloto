@@ -18,9 +18,9 @@ export const stageLabel = (s: string) => STAGES.find((x) => x.value === s)?.labe
 export const stageColor = (s: string) => STAGES.find((x) => x.value === s)?.color ?? "bg-slate-500";
 
 export const TEMPERATURES = [
-  { value: "quente", label: "Quente", className: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200" },
-  { value: "morno", label: "Morno", className: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200" },
-  { value: "frio", label: "Frio", className: "bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-200" },
+  { value: "quente", label: "Quente", className: "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300" },
+  { value: "morno", label: "Morno", className: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300" },
+  { value: "frio", label: "Frio", className: "bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300" },
 ] as const;
 export type Temperature = (typeof TEMPERATURES)[number]["value"];
 export const TEMPERATURE_VALUES = TEMPERATURES.map((t) => t.value) as [Temperature, ...Temperature[]];

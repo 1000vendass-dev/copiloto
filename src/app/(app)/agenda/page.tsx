@@ -32,9 +32,9 @@ export default async function AgendaPage({ searchParams }: { searchParams: Promi
         <Link href={link(addDays(day, -step))}><Button variant="outline" size="icon" aria-label="Anterior"><ChevronLeft className="h-4 w-4" /></Button></Link>
         <Link href={link(today)}><Button variant="outline">Hoje</Button></Link>
         <Link href={link(addDays(day, step))}><Button variant="outline" size="icon" aria-label="Próximo"><ChevronRight className="h-4 w-4" /></Button></Link>
-        <div className="ml-auto flex rounded-lg border border-border p-0.5">
+        <div className="glass ml-auto flex rounded-full p-1">
           {(["dia", "semana"] as const).map((m) => (
-            <Link key={m} href={link(day, m)} className={cn("rounded-md px-3 py-1 text-sm", mode === m ? "bg-brand text-white" : "text-fg-muted")}>{m === "dia" ? "Dia" : "Semana"}</Link>
+            <Link key={m} href={link(day, m)} className={cn("rounded-full px-4 py-1.5 text-sm font-medium", mode === m ? "bg-brand text-white" : "text-fg-muted")}>{m === "dia" ? "Dia" : "Semana"}</Link>
           ))}
         </div>
       </div>

@@ -128,10 +128,10 @@ export function SharePanel({ vehicleId, vehicleTitle, basePrice, leads, shares, 
         <div>
           <div className="mb-1 flex items-center justify-between">
             <span className="text-sm font-medium">Gordura</span>
-            <div className="inline-flex overflow-hidden rounded-lg border border-border text-xs" role="group" aria-label="Tipo de gordura">
+            <div className="inline-flex overflow-hidden rounded-full border border-border p-0.5 text-xs" role="group" aria-label="Tipo de gordura">
               {(["valor", "pct"] as const).map((m) => (
                 <button key={m} type="button" onClick={() => switchMode(m)} aria-pressed={mode === m}
-                  className={cn("px-3 py-1.5 font-medium", mode === m ? "bg-brand text-white" : "text-fg-muted hover:bg-muted")}>
+                  className={cn("rounded-full px-3 py-1 font-medium", mode === m ? "bg-brand text-white" : "text-fg-muted hover:bg-muted")}>
                   {m === "valor" ? "R$" : "%"}
                 </button>
               ))}
@@ -199,19 +199,19 @@ function ShareHistory({ shares, origin, vehicleTitle, onReuse }: {
                 {active ? (
                   <>
                     <a href={waLink(s.leads?.phone, text)} target="_blank" rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 rounded-lg bg-green-600 px-2.5 py-1.5 text-xs font-medium text-white hover:bg-green-700">
+                      className="inline-flex items-center gap-1 rounded-full bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700">
                       <MessageCircle className="h-3.5 w-3.5" />WhatsApp
                     </a>
                     <button type="button" onClick={async () => { if (await copyText(url)) { setCopiedId(s.id); setTimeout(() => setCopiedId(null), 2000); } }}
-                      className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs hover:bg-muted">
+                      className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1.5 text-xs hover:bg-muted">
                       {copiedId === s.id ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}{copiedId === s.id ? "Copiado" : "Copiar link"}
                     </button>
-                    <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs hover:bg-muted">
+                    <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1.5 text-xs hover:bg-muted">
                       <Eye className="h-3.5 w-3.5" />Abrir
                     </a>
                   </>
                 ) : null}
-                <button type="button" onClick={() => onReuse(s)} className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 text-xs hover:bg-muted">
+                <button type="button" onClick={() => onReuse(s)} className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-1.5 text-xs hover:bg-muted">
                   <RefreshCw className="h-3.5 w-3.5" />Usar para outro cliente
                 </button>
                 {active ? (

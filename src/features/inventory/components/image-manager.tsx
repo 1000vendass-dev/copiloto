@@ -2,6 +2,7 @@
 /* eslint-disable @next/next/no-img-element -- URLs assinadas do Supabase */
 
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import { Camera, ChevronLeft, ChevronRight, ImagePlus, Star, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/card";
@@ -135,7 +136,7 @@ export function ImageManager({ vehicleId, teamId, images }: { vehicleId: string;
       {images.length ? (
         <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
           {images.map((img, i) => (
-            <li key={img.id} className={cn("group relative overflow-hidden rounded-lg border bg-muted", img.is_primary ? "border-brand ring-2 ring-brand" : "border-border")}>
+            <li key={img.id} className={cn("group relative overflow-hidden rounded-2xl border bg-muted", img.is_primary ? "border-brand ring-2 ring-brand" : "border-border")}>
               <button type="button" className="block aspect-[4/3] w-full" onClick={() => setLightbox(i)} aria-label={`Abrir foto ${i + 1}`}>
                 {img.url ? <img src={img.url} alt="" loading="lazy" className="h-full w-full object-cover" /> : null}
               </button>
@@ -193,8 +194,9 @@ export function Lightbox({ images, index, onIndex, onClose }: { images: { url?: 
     document.body.style.overflow = "hidden";
     return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = overflow; };
   }, [onClose, prev, next]);
-  return (
-    <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-black/95"
+  // portal: o card de vidro (backdrop-filter) prenderia um "fixed" dentro dele
+  return createPortal(
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-[70] flex items-center justify-center bg-black/95"
       onTouchStart={(e) => (touch.current = e.touches[0].clientX)}
       onTouchEnd={(e) => { if (touch.current === null) return; const dx = e.changedTouches[0].clientX - touch.current; if (Math.abs(dx) > 50) (dx > 0 ? prev : next)(); touch.current = null; }}>
       <img src={images[index].url} alt="" className="max-h-full max-w-full object-contain" />
@@ -206,6 +208,7 @@ export function Lightbox({ images, index, onIndex, onClose }: { images: { url?: 
           <div className="absolute bottom-4 text-sm text-white/80">{index + 1} / {images.length}</div>
         </>
       ) : null}
-    </div>
+    </div>,
+    document.body,
   );
 }

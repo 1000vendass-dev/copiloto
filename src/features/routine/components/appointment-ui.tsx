@@ -81,7 +81,7 @@ export function AppointmentList({ items, leads }: { items: AppointmentRow[]; lea
   return (
     <ul className="space-y-2">
       {items.map((a) => (
-        <li key={a.id} className={cn("rounded-xl border border-l-4 border-border bg-surface p-3", STATUS_STYLE[a.status])}>
+        <li key={a.id} className={cn("rounded-2xl border border-l-4 border-border bg-surface p-3.5 shadow-[var(--shadow-card)]", STATUS_STYLE[a.status])}>
           {editing === a.id ? (
             <>
               <AppointmentForm leads={leads} appt={a} onDone={() => setEditing(null)} />

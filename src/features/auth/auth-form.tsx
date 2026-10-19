@@ -19,10 +19,11 @@ export function AuthForm({ mode, next }: { mode: Mode; next?: string }) {
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center px-4 py-10">
       <div className="mb-8 text-center">
+        <span className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-[20px] bg-brand text-2xl font-bold text-white shadow-[0_12px_28px_-10px] shadow-brand/70">C</span>
         <div className="text-2xl font-bold tracking-tight">Copiloto</div>
         <p className="text-sm text-fg-muted">Sua operação de vendas em um lugar só</p>
       </div>
-      <form onSubmit={onSubmit} className="space-y-4 rounded-xl border border-border bg-surface p-5 shadow-sm">
+      <form onSubmit={onSubmit} className="glass space-y-4 rounded-[28px] p-6">
         <h1 className="text-lg font-semibold">{titles[mode]}</h1>
         {state?.error ? <Alert>{state.error}</Alert> : null}
         {state?.success ? <Alert kind="success">{state.success}</Alert> : null}

@@ -11,7 +11,7 @@ import type { WaDraft, WaMessage } from "./queries";
 import { fmtSeconds, useVoiceRecorder } from "./voice-recorder";
 
 const REFRESH_MS = 15_000;
-const textareaCls = "w-full resize-none rounded-lg border border-border bg-surface px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand";
+const textareaCls = "w-full resize-none rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand";
 
 function Draft({ draft, leadId }: { draft: WaDraft; leadId: string }) {
   const router = useRouter();
@@ -30,7 +30,7 @@ function Draft({ draft, leadId }: { draft: WaDraft; leadId: string }) {
   });
 
   return (
-    <div className="space-y-2 rounded-lg border border-brand/40 bg-muted p-3">
+    <div className="glass space-y-2 rounded-3xl border-brand/40 p-3.5">
       <div className="flex items-center gap-1 text-xs font-medium text-brand">
         <Sparkles className="h-3.5 w-3.5" aria-hidden />{draft.source === "ia" ? "Rascunho do Copiloto — nada foi enviado" : "Rascunho"}
       </div>
@@ -98,9 +98,9 @@ export function WhatsAppChat({ leadId, messages, drafts, enabled = true }: { lea
           lastDay = day;
           return (
             <div key={m.id}>
-              {sep ? <div className="my-3 flex justify-center"><span className="rounded-full bg-muted px-3 py-0.5 text-[11px] font-medium text-fg-muted">{labelDay(day)}</span></div> : null}
+              {sep ? <div className="my-3 flex justify-center"><span className="glass rounded-full px-3 py-1 text-[11px] font-semibold text-fg-muted">{labelDay(day)}</span></div> : null}
               <div className={cn("flex", m.direction === "saida" ? "justify-end" : "justify-start")}>
-                <div className={cn("max-w-[85%] rounded-2xl px-3 py-1.5 text-sm shadow-sm", m.direction === "saida" ? "rounded-br-sm bg-brand text-white" : "rounded-bl-sm bg-surface")}>
+                <div className={cn("max-w-[85%] rounded-3xl px-3.5 py-2 text-[15px] leading-snug shadow-sm", m.direction === "saida" ? "rounded-br-md bg-brand text-white" : "glass rounded-bl-md")}>
                   {m.type === "audio" && m.media_path
                     ? <audio controls preload="none" src={`/api/whatsapp/media/${m.id}`} className="my-1 h-10 w-60 max-w-full" aria-label="Áudio" />
                     : <p className="whitespace-pre-wrap break-words">{m.body}</p>}
@@ -114,28 +114,28 @@ export function WhatsAppChat({ leadId, messages, drafts, enabled = true }: { lea
       </div>
 
       {enabled ? (
-        <div className="border-t border-border bg-surface px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+        <div className="px-2 pt-1 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
           {error || voice.error ? <p className="px-1 pb-1 text-sm text-red-600" role="alert">{error ?? voice.error}</p> : null}
           {voice.recording ? (
             <div className="flex items-center gap-2">
               <button type="button" onClick={voice.cancel} aria-label="Descartar áudio" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-fg-muted active:bg-muted"><Trash2 className="h-5 w-5" /></button>
-              <div className="flex h-11 flex-1 items-center gap-2 rounded-3xl border border-border bg-bg px-4" aria-live="polite">
+              <div className="glass-float flex h-12 flex-1 items-center gap-2 rounded-3xl px-4" aria-live="polite">
                 <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-red-500" aria-hidden />
                 <span className="tabular-nums">{fmtSeconds(voice.seconds)}</span>
                 <span className="truncate text-sm text-fg-muted">Gravando…</span>
               </div>
-              <Button size="icon" className="h-11 w-11 shrink-0 rounded-full" onClick={sendVoice} disabled={pending} aria-label="Enviar áudio"><Send className="h-5 w-5" /></Button>
+              <Button size="icon" className="h-12 w-12 shrink-0 rounded-full" onClick={sendVoice} disabled={pending} aria-label="Enviar áudio"><Send className="h-5 w-5" /></Button>
             </div>
           ) : (
             <div className="flex items-end gap-2">
               <textarea
-                className="max-h-32 min-h-11 flex-1 resize-none rounded-3xl border border-border bg-bg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand"
+                className="glass-float max-h-32 min-h-12 flex-1 resize-none rounded-3xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-brand/40"
                 rows={1} placeholder="Mensagem" aria-label="Mensagem de WhatsApp" value={text} onChange={(e) => setText(e.target.value)} disabled={pending}
               />
               {text.trim() ? (
-                <Button size="icon" className="h-11 w-11 shrink-0 rounded-full" onClick={send} disabled={pending} aria-label="Enviar"><Send className="h-5 w-5" /></Button>
+                <Button size="icon" className="h-12 w-12 shrink-0 rounded-full" onClick={send} disabled={pending} aria-label="Enviar"><Send className="h-5 w-5" /></Button>
               ) : (
-                <Button size="icon" className="h-11 w-11 shrink-0 rounded-full" onClick={() => void voice.start()} disabled={pending} aria-label="Gravar áudio">
+                <Button size="icon" className="h-12 w-12 shrink-0 rounded-full" onClick={() => void voice.start()} disabled={pending} aria-label="Gravar áudio">
                   {pending ? <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-white" aria-hidden /> : <Mic className="h-5 w-5" />}
                 </Button>
               )}

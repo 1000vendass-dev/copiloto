@@ -10,10 +10,10 @@ export default function MaisPage() {
   return (
     <>
       <PageHeader title="Mais" />
-      <Card className="divide-y divide-border p-0">
+      <Card className="divide-y divide-border overflow-hidden p-0 sm:p-0">
         {items.map(({ href, label, icon: Icon }) => (
-          <Link key={href} href={href} className="flex items-center gap-3 px-4 py-4 hover:bg-muted">
-            <Icon className="h-5 w-5 text-fg-muted" aria-hidden />
+          <Link key={href} href={href} className="flex items-center gap-3 px-4 py-3.5 hover:bg-muted">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand/12 text-brand"><Icon className="h-[18px] w-[18px]" aria-hidden /></span>
             <span className="flex-1 font-medium">{label}</span>
             <ChevronRight className="h-4 w-4 text-fg-muted" aria-hidden />
           </Link>

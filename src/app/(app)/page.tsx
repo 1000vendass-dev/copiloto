@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlarmClock, CalendarDays, CheckSquare, Flame, MessageCircle, Phone } from "lucide-react";
+import { AlarmClock, CalendarDays, CheckSquare, ChevronRight, Flame, MessageCircle, Phone } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Alert, Card, CardTitle, EmptyState } from "@/components/ui/card";
@@ -42,36 +42,36 @@ export default async function MeuDiaPage() {
       <PageHeader title={`Olá, ${firstName}`} subtitle={`${labelDay(today)} · ${session.teamName}`} />
       {failed ? <div className="mb-4"><Alert>Parte das informações não carregou. Recarregue a página.</Alert></div> : null}
 
-      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat href="/tarefas?view=atrasadas" icon={AlarmClock} label="Atrasadas" value={late.tasks.length} alert={late.tasks.length > 0} />
-        <Stat href="/tarefas?view=hoje" icon={CheckSquare} label="Tarefas hoje" value={todayTasks.tasks.length} />
-        <Stat href="/agenda" icon={CalendarDays} label="Compromissos hoje" value={activeAppts.length} />
-        <Stat href="/estoque" icon={Flame} label="Veículos disponíveis" value={vehiclesCount.count ?? 0} />
+      <div className="-mx-4 mb-5 flex gap-3 overflow-x-auto px-4 pb-1 no-scrollbar sm:mx-0 sm:grid sm:grid-cols-4 sm:overflow-visible sm:px-0">
+        <Stat href="/tarefas?view=atrasadas" icon={AlarmClock} label="Atrasadas" value={late.tasks.length} tone={late.tasks.length > 0 ? "red" : "slate"} />
+        <Stat href="/tarefas?view=hoje" icon={CheckSquare} label="Tarefas hoje" value={todayTasks.tasks.length} tone="blue" />
+        <Stat href="/agenda" icon={CalendarDays} label="Compromissos" value={activeAppts.length} tone="violet" />
+        <Stat href="/estoque" icon={Flame} label="Disponíveis" value={vehiclesCount.count ?? 0} tone="amber" />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
-          <CardTitle className="mb-3">Agora</CardTitle>
+          <CardHead title="Agora" />
           {now.length ? <TaskRows tasks={now} leads={leads} /> : <EmptyState>Nada urgente agora. 👍</EmptyState>}
         </Card>
 
         <Card>
-          <div className="mb-3 flex items-center justify-between">
-            <CardTitle>Quem chamar hoje</CardTitle>
-            <Link href="/leads" className="text-sm text-brand hover:underline">Ver leads</Link>
-          </div>
+          <CardHead title="Quem chamar hoje" href="/leads" link="Leads" />
           {callList.length ? (
-            <ul className="divide-y divide-border">
+            <ul className="-mx-1 space-y-1">
               {callList.map(({ lead, reason }) => (
-                <li key={lead.id} className="flex items-center justify-between gap-2 py-2">
-                  <Link href={`/leads/${lead.id}`} className="min-w-0">
-                    <div className="truncate font-medium">{lead.name} <span className="text-xs font-normal text-fg-muted">· {stageLabel(lead.stage)}</span></div>
-                    <div className="truncate text-xs text-fg-muted">{reason}</div>
+                <li key={lead.id} className="flex items-center gap-3 rounded-2xl px-1 py-1.5">
+                  <Link href={`/leads/${lead.id}`} className="flex min-w-0 flex-1 items-center gap-3">
+                    <Avatar name={lead.name} />
+                    <span className="min-w-0">
+                      <span className="block truncate font-semibold">{lead.name}</span>
+                      <span className="block truncate text-xs text-fg-muted">{stageLabel(lead.stage)} · {reason}</span>
+                    </span>
                   </Link>
                   {lead.phone ? (
-                    <div className="flex shrink-0 gap-1">
-                      <a href={`tel:${lead.phone.replace(/\s/g, "")}`} aria-label={`Ligar para ${lead.name}`} className="rounded-lg border border-border p-2 hover:bg-muted"><Phone className="h-4 w-4" /></a>
-                      <a href={waLink(lead.phone)} target="_blank" rel="noopener noreferrer" aria-label={`WhatsApp de ${lead.name}`} className="rounded-lg border border-border p-2 hover:bg-muted"><MessageCircle className="h-4 w-4" /></a>
+                    <div className="flex shrink-0 gap-1.5">
+                      <a href={`tel:${lead.phone.replace(/\s/g, "")}`} aria-label={`Ligar para ${lead.name}`} className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-fg hover:bg-muted-2"><Phone className="h-4 w-4" /></a>
+                      <a href={waLink(lead.phone)} target="_blank" rel="noopener noreferrer" aria-label={`WhatsApp de ${lead.name}`} className="flex h-10 w-10 items-center justify-center rounded-full bg-green-500/15 text-green-600 hover:bg-green-500/25 dark:text-green-400"><MessageCircle className="h-4 w-4" /></a>
                     </div>
                   ) : null}
                 </li>
@@ -81,18 +81,18 @@ export default async function MeuDiaPage() {
         </Card>
 
         <Card>
-          <div className="mb-3 flex items-center justify-between"><CardTitle>Agenda de hoje</CardTitle><Link href="/agenda" className="text-sm text-brand hover:underline">Abrir agenda</Link></div>
+          <CardHead title="Agenda de hoje" href="/agenda" link="Agenda" />
           <AppointmentList items={appts.appointments} leads={leads} />
         </Card>
 
         <Card>
-          <div className="mb-3 flex items-center justify-between"><CardTitle>Tarefas de hoje</CardTitle><Link href="/tarefas" className="text-sm text-brand hover:underline">Todas</Link></div>
+          <CardHead title="Tarefas de hoje" href="/tarefas" link="Todas" />
           <TaskRows tasks={todayTasks.tasks} leads={leads} />
         </Card>
 
         {late.tasks.length > 6 ? (
           <Card className="lg:col-span-2">
-            <CardTitle className="mb-3">Atrasados <Badge className="ml-2 bg-red-100 text-red-800">{late.tasks.length}</Badge></CardTitle>
+            <CardTitle className="mb-3">Atrasados <Badge className="ml-2 bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300">{late.tasks.length}</Badge></CardTitle>
             <TaskRows tasks={late.tasks.slice(6)} leads={leads} />
           </Card>
         ) : null}
@@ -101,16 +101,43 @@ export default async function MeuDiaPage() {
   );
 }
 
-function Stat({ href, icon: Icon, label, value, alert }: { href: string; icon: typeof Phone; label: string; value: number; alert?: boolean }) {
+function CardHead({ title, href, link }: { title: string; href?: string; link?: string }) {
   return (
-    <Link href={href}>
-      <Card className={alert ? "border-red-300 dark:border-red-900" : undefined}>
-        <div className="flex items-center justify-between">
-          <span className={`text-2xl font-bold tabular-nums ${alert ? "text-red-600" : ""}`}>{value}</span>
-          <Icon className="h-5 w-5 text-fg-muted" aria-hidden />
-        </div>
-        <p className="text-xs text-fg-muted">{label}</p>
-      </Card>
+    <div className="mb-3 flex items-center justify-between gap-2">
+      <CardTitle>{title}</CardTitle>
+      {href ? (
+        <Link href={href} className="inline-flex items-center gap-0.5 rounded-full bg-brand/10 px-3 py-1 text-xs font-semibold text-brand hover:bg-brand/15">
+          {link}<ChevronRight className="h-3.5 w-3.5" aria-hidden />
+        </Link>
+      ) : null}
+    </div>
+  );
+}
+
+function Avatar({ name }: { name: string }) {
+  return (
+    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand/12 text-sm font-bold text-brand" aria-hidden>
+      {name.trim().charAt(0).toUpperCase() || "?"}
+    </span>
+  );
+}
+
+const TONES = {
+  red: "bg-red-500/15 text-red-600 dark:text-red-400",
+  blue: "bg-brand/15 text-brand",
+  violet: "bg-violet-500/15 text-violet-600 dark:text-violet-400",
+  amber: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+  slate: "bg-muted-2 text-fg-muted",
+} as const;
+
+function Stat({ href, icon: Icon, label, value, tone }: { href: string; icon: typeof Phone; label: string; value: number; tone: keyof typeof TONES }) {
+  return (
+    <Link href={href} className="glass flex min-w-[9.5rem] shrink-0 items-center gap-3 rounded-3xl p-3.5 transition-transform active:scale-[0.98] sm:min-w-0">
+      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${TONES[tone]}`}><Icon className="h-5 w-5" aria-hidden /></span>
+      <span className="min-w-0">
+        <span className={`block text-2xl font-bold leading-none tabular-nums ${tone === "red" ? "text-red-600 dark:text-red-400" : ""}`}>{value}</span>
+        <span className="mt-1 block truncate text-xs text-fg-muted">{label}</span>
+      </span>
     </Link>
   );
 }

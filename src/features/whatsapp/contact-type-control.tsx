@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { cn } from "@/lib/utils";
+import { chipClass } from "@/components/ui/chip";
 import { setContactType } from "./actions";
 import { CONTACT_TYPES } from "./contact-types";
 
@@ -19,10 +19,7 @@ export function ContactTypeControl({ leadId, value }: { leadId: string; value: s
             type="button"
             disabled={pending || value === t.value}
             onClick={() => start(async () => { const r = await setContactType(leadId, t.value); setError(r.ok ? null : r.error ?? "Erro"); })}
-            className={cn(
-              "rounded-full border px-3 py-1 text-xs font-medium",
-              value === t.value ? "border-brand bg-brand text-white" : "border-border text-fg-muted hover:text-fg",
-            )}
+            className={chipClass(value === t.value, "h-8 px-3 text-xs")}
           >
             {t.label}
           </button>

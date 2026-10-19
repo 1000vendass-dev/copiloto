@@ -28,7 +28,7 @@ export function VehiclePicker({ name, initial, onChange }: { name: string; initi
     <div>
       <input type="hidden" name={name} value={selected?.id ?? ""} />
       {selected ? (
-        <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-muted px-3 py-2 text-sm">
+        <div className="flex items-center justify-between gap-2 rounded-2xl border border-border bg-muted px-4 py-2.5 text-sm">
           <span className="truncate">{selected.label}</span>
           <button type="button" aria-label="Remover veículo" onClick={() => { setSelected(null); onChange?.(null); }} className="text-fg-muted hover:text-fg">
             <X className="h-4 w-4" />
@@ -38,14 +38,14 @@ export function VehiclePicker({ name, initial, onChange }: { name: string; initi
         <div className="relative">
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar no estoque: onix 2023, V097…" autoComplete="off" />
           {q.trim().length >= 2 ? (
-            <ul className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-lg border border-border bg-surface shadow-lg">
+            <ul className="glass-float absolute z-20 mt-1.5 max-h-64 w-full overflow-auto rounded-2xl p-1">
               {pending && !options.length ? <li className="px-3 py-2 text-sm text-fg-muted">Buscando…</li> : null}
               {!pending && !options.length ? <li className="px-3 py-2 text-sm text-fg-muted">Nenhum veículo encontrado.</li> : null}
               {options.map((o) => (
                 <li key={o.id}>
                   <button
                     type="button"
-                    className="flex w-full justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-muted"
+                    className="flex w-full justify-between gap-2 rounded-xl px-3 py-2.5 text-left text-sm hover:bg-muted"
                     onClick={() => { setSelected({ id: o.id, label: o.label }); setQ(""); onChange?.({ id: o.id, label: o.label, price: o.price }); }}
                   >
                     <span className="truncate">{o.label}</span>

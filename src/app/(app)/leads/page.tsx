@@ -4,6 +4,7 @@ import { Plus, Search } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Alert, EmptyState } from "@/components/ui/card";
+import { chipClass } from "@/components/ui/chip";
 import { Input } from "@/components/ui/input";
 import { LeadCard } from "@/features/crm/components/lead-card";
 import { STAGES, TEMPERATURES } from "@/features/crm/constants";
@@ -27,9 +28,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
   const view = sp.view === "funil" ? "funil" : "lista";
   const { leads, error } = await listLeads(sp);
 
-  const chip = (active: boolean) =>
-    cn("whitespace-nowrap rounded-full border px-3 py-1 text-xs font-medium",
-      active ? "border-brand bg-brand text-white" : "border-border bg-surface text-fg-muted hover:text-fg");
+  const chip = (active: boolean) => chipClass(active);
 
   return (
     <>
@@ -47,7 +46,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
         <Button type="submit" variant="outline" aria-label="Buscar"><Search className="h-4 w-4" /></Button>
       </form>
 
-      <div className="mb-3 flex gap-2">
+      <div className="-mx-4 mb-3 flex gap-2 overflow-x-auto px-4 pb-1 no-scrollbar">
         <Link href={href(sp, { view: undefined })} className={chip(view === "lista")}>Lista</Link>
         <Link href={href(sp, { view: "funil", stage: undefined })} className={chip(view === "funil")}>Funil</Link>
         <span className="mx-1 w-px bg-border" />
@@ -59,7 +58,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
       </div>
 
       {view === "lista" ? (
-        <div className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pb-1">
+        <div className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pb-1 no-scrollbar">
           <Link href={href(sp, { stage: undefined })} className={chip(!sp.stage)}>Em aberto</Link>
           {STAGES.map((s) => (
             <Link key={s.value} href={href(sp, { stage: s.value })} className={chip(sp.stage === s.value)}>{s.label}</Link>
@@ -81,7 +80,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
           {STAGES.map((s) => {
             const items = leads.filter((l) => l.stage === s.value);
             return (
-              <section key={s.value} className="w-72 shrink-0 snap-start rounded-xl bg-muted p-2">
+              <section key={s.value} className="glass w-72 shrink-0 snap-start rounded-3xl p-2.5">
                 <h2 className="flex items-center justify-between px-1 pb-2 text-sm font-semibold">
                   <span className="flex items-center gap-2"><span className={cn("h-2 w-2 rounded-full", s.color)} />{s.label}</span>
                   <span className="text-fg-muted">{items.length}</span>

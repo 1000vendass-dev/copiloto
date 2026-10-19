@@ -96,7 +96,7 @@ export function ImportWizard() {
       {error ? <Alert>{error}</Alert> : null}
       <Card className="space-y-3">
         <CardTitle>1. Arquivo</CardTitle>
-        <label className="flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed border-border p-4 hover:border-brand">
+        <label className="flex cursor-pointer items-center gap-3 rounded-3xl border-2 border-dashed border-border p-5 hover:border-brand">
           <FileSpreadsheet className="h-8 w-8 text-fg-muted" aria-hidden />
           <span className="text-sm">{sheet ? <><strong>{sheet.fileName}</strong> · {sheet.rows.length} linhas</> : "Escolha uma planilha CSV ou Excel (XLSX)"}</span>
           <input type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" hidden onChange={(e) => onFile(e.target.files?.[0])} />
@@ -139,7 +139,7 @@ export function ImportWizard() {
               <span>Atualizar os {counts.atualizar} veículos que já existem (encontrados pelo código ou pela placa). <br /><span className="text-fg-muted">Desmarcado: eles são ignorados e nada do estoque atual é alterado.</span></span>
             </label>
           ) : null}
-          <div className="max-h-96 overflow-auto rounded-lg border border-border">
+          <div className="max-h-96 overflow-auto rounded-2xl border border-border">
             <table className="w-full text-left text-xs">
               <thead className="sticky top-0 bg-muted"><tr><th className="p-2">Linha</th><th className="p-2">Veículo</th><th className="p-2">Ano</th><th className="p-2">Preço</th><th className="p-2">Situação</th></tr></thead>
               <tbody>

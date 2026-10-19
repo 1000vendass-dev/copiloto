@@ -28,11 +28,11 @@ function Bars({ items, href }: { items: { label: string; n: number; key?: string
         const row = (
           <div className="grid grid-cols-[7.5rem_1fr_2.5rem] items-center gap-2 text-sm" title={`${i.label}: ${i.n}`}>
             <span className="truncate text-fg-muted">{i.label}</span>
-            <span className="h-3 rounded-r bg-muted"><span className="block h-3 rounded-r bg-brand" style={{ width: `${(i.n / max) * 100}%`, minWidth: i.n ? 4 : 0 }} /></span>
+            <span className="h-2.5 rounded-full bg-muted"><span className="block h-2.5 rounded-full bg-brand" style={{ width: `${(i.n / max) * 100}%`, minWidth: i.n ? 4 : 0 }} /></span>
             <span className="text-right tabular-nums">{i.n}</span>
           </div>
         );
-        return <li key={i.label}>{href && i.key ? <Link href={href(i.key)} className="block rounded hover:bg-muted">{row}</Link> : row}</li>;
+        return <li key={i.label}>{href && i.key ? <Link href={href(i.key)} className="block rounded-xl px-1 hover:bg-muted">{row}</Link> : row}</li>;
       })}
     </ul>
   );

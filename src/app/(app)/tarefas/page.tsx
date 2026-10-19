@@ -7,7 +7,7 @@ import { Alert } from "@/components/ui/card";
 import { TaskRows } from "@/features/routine/components/task-ui";
 import { openLeadOptions } from "@/features/routine/lead-options";
 import { listTasks, taskCounts } from "@/features/routine/queries";
-import { cn } from "@/lib/utils";
+import { chipClass } from "@/components/ui/chip";
 
 export const metadata: Metadata = { title: "Tarefas" };
 
@@ -27,14 +27,12 @@ export default async function TarefasPage({ searchParams }: { searchParams: Prom
   return (
     <>
       <PageHeader title="Tarefas" actions={<Link href="/tarefas/nova"><Button><Plus className="h-4 w-4" />Nova tarefa</Button></Link>} />
-      <div className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4">
+      <div className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pb-1 no-scrollbar">
         {VIEWS.map((v) => {
           const n = v.value === "concluidas" ? null : counts[v.value];
           return (
             <Link key={v.value} href={`/tarefas?view=${v.value}`}
-              className={cn("whitespace-nowrap rounded-full border px-3 py-1 text-sm font-medium",
-                view === v.value ? "border-brand bg-brand text-white" : "border-border bg-surface text-fg-muted",
-                v.value === "atrasadas" && n && view !== v.value ? "border-red-300 text-red-700" : "")}>
+              className={chipClass(view === v.value, v.value === "atrasadas" && n && view !== v.value ? "text-red-600 dark:text-red-400" : undefined)}>
               {v.label}{n ? ` (${n})` : ""}
             </Link>
           );

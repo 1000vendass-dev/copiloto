@@ -8,7 +8,7 @@ import { statusClass, statusLabel, transmissionLabel } from "../constants";
 
 export function VehicleCard({ v, img }: { v: Vehicle; img?: string }) {
   return (
-    <Link href={`/estoque/${v.id}`} className="group flex overflow-hidden rounded-xl border border-border bg-surface shadow-sm transition-colors hover:border-brand sm:block">
+    <Link href={`/estoque/${v.id}`} className="glass group flex overflow-hidden rounded-3xl transition-transform active:scale-[0.99] hover:border-brand/50 sm:block">
       <div className="relative aspect-[4/3] w-32 shrink-0 bg-muted sm:w-full">
         {img ? (
           <img src={img} alt="" loading="lazy" className="h-full w-full object-cover" />

@@ -18,7 +18,7 @@ const PANELS: { key: Panel; label: string; icon: typeof Plus }[] = [
   { key: "tags", label: "Tags", icon: Tag },
 ];
 
-const iconBtn = "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-fg-muted hover:bg-muted active:bg-muted-2";
+const iconBtn = "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-fg hover:bg-muted active:bg-muted-2";
 
 /**
  * Card do lead no formato do WhatsApp: conversa em tela cheia, perfil e atalhos no topo,
@@ -39,11 +39,11 @@ export function LeadWorkspace({ lead, telHref, waHref, chat, profile, panels }: 
   const pick = (p: Open) => { setMenu(false); setOpen(p); };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-bg md:relative md:inset-auto md:z-auto md:h-[calc(100dvh-4.5rem)] md:overflow-hidden md:rounded-xl md:border md:border-border">
-      <header className="flex items-center gap-0.5 border-b border-border bg-surface px-1 pb-1.5 pt-[max(0.375rem,env(safe-area-inset-top))]">
+    <div className="app-bg fixed inset-0 z-50 flex flex-col md:relative md:inset-auto md:z-auto md:h-[calc(100dvh-4rem)] md:overflow-hidden md:rounded-[28px] md:border md:border-border">
+      <header className="glass-float z-30 mx-2 mt-[max(0.5rem,env(safe-area-inset-top))] flex items-center gap-0.5 rounded-full px-1.5 py-1.5">
         <Link href="/leads" aria-label="Voltar para leads" className={iconBtn}><ArrowLeft className="h-5 w-5" /></Link>
-        <button type="button" onClick={() => setOpen("perfil")} className="flex min-w-0 flex-1 items-center gap-2 rounded-lg px-1 py-1 text-left active:bg-muted">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand/15 font-semibold text-brand">{lead.name.trim().charAt(0).toUpperCase() || "?"}</span>
+        <button type="button" onClick={() => setOpen("perfil")} className="flex min-w-0 flex-1 items-center gap-2.5 rounded-full px-1 py-0.5 text-left active:bg-muted">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand font-bold text-white shadow-[0_6px_16px_-8px] shadow-brand/70">{lead.name.trim().charAt(0).toUpperCase() || "?"}</span>
           <span className="min-w-0">
             <span className="block truncate font-semibold leading-tight">{lead.name}</span>
             <span className="block truncate text-xs text-fg-muted">{lead.subtitle ?? "toque para ver o perfil"}</span>
@@ -58,27 +58,27 @@ export function LeadWorkspace({ lead, telHref, waHref, chat, profile, panels }: 
       <div className="relative flex min-h-0 flex-1 flex-col">
         {chat}
 
-        {menu ? <button type="button" aria-label="Fechar menu" className="absolute inset-0 z-10 bg-black/20" onClick={() => setMenu(false)} /> : null}
+        {menu ? <button type="button" aria-label="Fechar menu" className="absolute inset-0 z-10 bg-black/30 backdrop-blur-[1px]" onClick={() => setMenu(false)} /> : null}
 
         <div className="absolute right-3 z-20 flex flex-col items-end gap-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom))]">
           {menu ? (
-            <ul className="mb-1 w-56 overflow-hidden rounded-2xl border border-border bg-surface shadow-xl" role="menu">
+            <ul className="glass-float animate-pop mb-1 w-64 overflow-hidden rounded-3xl p-1.5" role="menu">
               {PANELS.map(({ key, label, icon: Icon }) => (
                 <li key={key}>
-                  <button type="button" role="menuitem" onClick={() => pick(key)} className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-medium active:bg-muted hover:bg-muted">
-                    <Icon className="h-5 w-5 text-brand" aria-hidden />{label}
+                  <button type="button" role="menuitem" onClick={() => pick(key)} className="flex w-full items-center gap-3 rounded-2xl px-2.5 py-2.5 text-left text-[15px] font-medium active:bg-muted hover:bg-muted">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand/12 text-brand"><Icon className="h-[18px] w-[18px]" aria-hidden /></span>{label}
                   </button>
                 </li>
               ))}
             </ul>
           ) : (
             <button type="button" onClick={() => pick("ia")} aria-label="Falar com a IA sobre este lead"
-              className="flex h-12 w-12 items-center justify-center rounded-full border border-border bg-surface text-brand shadow-lg active:scale-95">
+              className="glass-float flex h-12 w-12 items-center justify-center rounded-full text-brand active:scale-95">
               <Sparkles className="h-5 w-5" />
             </button>
           )}
           <button type="button" onClick={() => setMenu((m) => !m)} aria-label={menu ? "Fechar menu" : "Abrir menu do lead"} aria-expanded={menu}
-            className="flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-lg active:scale-95">
+            className="flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-[0_12px_28px_-8px] shadow-brand/70 active:scale-95">
             <Plus className={cn("h-6 w-6 transition-transform", menu && "rotate-45")} />
           </button>
         </div>

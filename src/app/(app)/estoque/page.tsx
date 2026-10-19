@@ -36,7 +36,7 @@ export default async function EstoquePage({ searchParams }: { searchParams: Prom
           <Input name="q" type="search" defaultValue={f.q} placeholder='Ex.: "onix até 80 mil", "SUV automático 2020"' />
           <Button type="submit" aria-label="Buscar"><Search className="h-4 w-4" /></Button>
         </div>
-        <details open={advancedOpen} className="rounded-xl border border-border bg-surface p-3">
+        <details open={advancedOpen} className="glass rounded-3xl p-4">
           <summary className="flex cursor-pointer items-center gap-2 text-sm font-medium"><SlidersHorizontal className="h-4 w-4" />Filtros</summary>
           <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Select name="status" defaultValue={f.status ?? "disponivel"} aria-label="Status">

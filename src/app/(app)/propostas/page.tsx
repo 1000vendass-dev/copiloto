@@ -6,18 +6,19 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, Card, EmptyState } from "@/components/ui/card";
 import { PROPOSAL_STATUS, listProposals, vehicleLabel } from "@/features/proposals/queries";
-import { cn, formatBRL, formatDate } from "@/lib/utils";
+import { chipClass } from "@/components/ui/chip";
+import { formatBRL, formatDate } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Propostas" };
 
 export default async function PropostasPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
   const { status } = await searchParams;
   const { proposals, error } = await listProposals(status);
-  const chip = (a: boolean) => cn("whitespace-nowrap rounded-full border px-3 py-1 text-sm", a ? "border-brand bg-brand text-white" : "border-border bg-surface text-fg-muted");
+  const chip = (a: boolean) => chipClass(a);
   return (
     <>
       <PageHeader title="Propostas" subtitle={`${proposals.length} propostas`} actions={<Link href="/propostas/nova"><Button><Plus className="h-4 w-4" />Nova proposta</Button></Link>} />
-      <div className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4">
+      <div className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pb-1 no-scrollbar">
         <Link href="/propostas" className={chip(!status)}>Todas</Link>
         {PROPOSAL_STATUS.map((s) => <Link key={s.value} href={`/propostas?status=${s.value}`} className={chip(status === s.value)}>{s.label}</Link>)}
       </div>

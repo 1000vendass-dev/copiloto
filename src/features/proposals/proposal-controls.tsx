@@ -18,7 +18,7 @@ export function ProposalControls({ id, status }: { id: string; status: string })
         {status !== "recusada" ? <Button variant="outline" disabled={pending} onClick={() => run("recusada")}>Recusada</Button> : null}
         {status !== "rascunho" ? <Button variant="ghost" disabled={pending} onClick={() => run("rascunho")}>Voltar para rascunho</Button> : null}
       </div>
-      <div className="rounded-lg border border-green-200 bg-green-50 p-3 dark:border-green-900 dark:bg-green-950">
+      <div className="rounded-2xl border border-green-200 bg-green-50 p-3.5 dark:border-green-500/30 dark:bg-green-500/10">
         <p className="mb-2 text-sm">Cliente aceitou? Isso marca o lead como <strong>Venda</strong> e o veículo como <strong>Vendido</strong>.</p>
         <ConfirmButton label="Cliente aceitou — registrar venda" confirmLabel="Confirmar venda" variant="primary" size="md"
           onConfirm={() => acceptProposalAndRegisterSale(id)} />

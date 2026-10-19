@@ -74,7 +74,7 @@ export function TaskRows({ tasks, leads }: { tasks: TaskRow[]; leads: LeadOption
           const done = t.status === "concluida";
           const late = !done && t.due_at && t.due_at < now;
           return (
-            <li key={t.id} className={cn("rounded-xl border border-l-4 border-border bg-surface p-3", PRIO[t.priority])}>
+            <li key={t.id} className={cn("rounded-2xl border border-l-4 border-border bg-surface p-3.5 shadow-[var(--shadow-card)]", PRIO[t.priority])}>
               {editing === t.id ? (
                 <TaskForm leads={leads} task={t} onDone={() => setEditing(null)} />
               ) : (

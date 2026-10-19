@@ -7,6 +7,7 @@ Três containers, todos na rede docker própria `copiloto-net` (sem ligação co
 | `/root/copiloto-waha` | `copiloto-waha` | WAHA (WhatsApp, motor NOWEB, armazenamento ligado), porta só em `127.0.0.1:3031` |
 | `/root/copiloto-app` | `copiloto-app` | este app (Next.js standalone) |
 | `/root/copiloto-claude` | `copiloto-claude` | Claude Code logado na assinatura + ponte HTTP (`server.mjs`) |
+| `/root/copiloto-whisper` | `copiloto-whisper` | Whisper (fala → texto) para a IA ler os áudios; sem porta publicada, `WHISPER_URL=http://copiloto-whisper:9000` |
 
 Entrada pela internet: o Caddy do CRM tem um bloco `copiloto.1000vendas.com` que repassa para `copiloto-app:3000`
 e **bloqueia** `/api/whatsapp/webhook` (o WAHA chama o app por dentro da rede).

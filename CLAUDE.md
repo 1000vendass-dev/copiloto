@@ -32,10 +32,11 @@
 ## Arquitetura (como está hoje)
 
 - **Tudo na minha VPS (HostGator).** Vercel desativada. Endereço: `https://copiloto.1000vendas.com`.
-- **3 containers Docker** na rede própria `copiloto-net`, separada do CRM:
+- **4 containers Docker** na rede própria `copiloto-net`, separada do CRM:
   1. `copiloto-app`: Next.js (repo `github.com/1000vendass-dev/copiloto`, branch `main`)
   2. `copiloto-waha`: WAHA (WhatsApp), número "Wanderson consultor"
   3. `copiloto-claude`: Claude Code logado na minha assinatura + ponte HTTP com senha
+  4. `copiloto-whisper`: transcrição de áudio (Whisper, modelo small, ~1 GB). Skill reutilizável: `transcricao-whisper`
 - **Banco:** Supabase, projeto "Copiloto". Já tem provider `waha` e a tabela `whatsapp_drafts` (rascunhos).
 - **Ponto em comum com o CRM:** só o Caddy (portas 80/443), com 1 bloco para o Copiloto. ⚠️ Se o `update.sh` do CRM reescrever o Caddyfile, o bloco some. Backup em `/root/copiloto-app/Caddyfile.crm.bak`.
 - **Acesso à VPS:** atalho `ssh vps`.
@@ -46,6 +47,7 @@
 - Mensagem que chega vira lead (ou se liga ao lead existente pelo telefone) e aparece no card como conversa em balões. As que eu mando pelo celular também entram, sem duplicar.
 - **A IA NUNCA envia mensagem sozinha.** Ela só cria **rascunho** no card. Eu reviso e toco em Enviar.
 - Ferramentas da IA no chat: `read_whatsapp`, `draft_whatsapp`, `get_lead` (traz a conversa real com horário de Brasília).
+- Áudios: eu ouço no card; a IA lê a transcrição (`whatsapp_messages.transcript`). Arquivos no bucket privado `whatsapp-media` (o WAHA apaga os dele em ~3 min).
 - **Custo:** ~10 mil tokens por passo, quase tudo do cache. O Claude Code da ponte roda com `--strict-mcp-config` para não carregar os conectores da conta (eram ~52 mil tokens). Não remover.
 - O chat consome o limite da minha assinatura. Se acabar, avisa e volta quando renovar.
 - **Uso pessoal apenas.** Se entrar outro usuário, o chat volta para API paga.
@@ -97,3 +99,4 @@
 - 19/10/2026: Agenda e Tarefas com botão Novo compromisso / Nova tarefa (páginas `/agenda/novo` e `/tarefas/nova`), igual Novo cliente.
 - 19/10/2026: Os 4 leads que não são cliente viraram Perdido ("Não é cliente: ..."). Card do lead ganhou "Tipo de contato" (Cliente/Loja/Parceiro/Próprio/Spam): fora de Cliente, o lead sai do funil. `DEPLOY.md` reescrito para a VPS, com o plano do Caddy próprio.
 - 19/10/2026: Card do lead no formato WhatsApp (conversa em tela cheia; topo com perfil, ligar, WhatsApp e agenda; botão + com notas, tarefas, registrar contato e tags; botão da IA com conversa própria por lead). 6 leads antigos ligados ao WhatsApp; lead criado/editado com telefone (app ou IA) liga sozinho.
+- 19/10/2026: Áudio no card: gravar e enviar voz (microfone na caixa de mensagem), ouvir os áudios no balão e transcrição automática só para a IA (container `copiloto-whisper`). 12 áudios antigos guardados e transcritos. Ficha técnica no menu +.

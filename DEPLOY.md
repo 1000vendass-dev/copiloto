@@ -1,39 +1,69 @@
 # Deploy
 
+O Copiloto roda na VPS (Docker). A Vercel foi desativada em 17/10/2026.
+Infraestrutura (containers, rede, segredos): `deploy/README.md`.
+
 ```
-git push (main) → GitHub (1000vendass-dev/copiloto) → Vercel (projeto "copiloto", equipe 100vendas) → build → produção
+PC (repo copiloto-git) → git push → GitHub (cópia oficial)
+                       → pacote com os arquivos alterados → VPS /root/copiloto-app/src → docker compose build → no ar
 ```
 
-Cada push no `main` publica em produção **se** `npm run vercel-build` (lint + typecheck + build) passar.
-Se falhar, a produção continua na última versão boa. Outros branches geram *preview*.
+A pasta `/root/copiloto-app/src` da VPS **não é um repositório Git**: é uma cópia do código. Por isso o deploy
+manda só os arquivos do último commit e o `build` acontece na própria VPS.
 
-## Variáveis de ambiente (Vercel → Settings → Environment Variables)
+## Publicar uma mudança
 
-| Variável | Onde | Observação |
-|---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | todas | pública |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | todas | pública (protegida por RLS) |
-| `ANTHROPIC_API_KEY` | Production | **secreta** — só no servidor; nunca com `NEXT_PUBLIC_` |
-| `COPILOTO_MODEL` | opcional | padrão `claude-sonnet-5` |
+1. No PC, com o commit feito (`git status` limpo):
+   ```
+   git diff --name-only HEAD~1 HEAD > mudanca.txt
+   git archive -o ../mudanca.tar HEAD -- $(cat mudanca.txt)     # bash; no PowerShell use tar -cf ... -T mudanca.txt
+   scp ../mudanca.tar vps:/tmp/mudanca.tar
+   ```
+   Use caminho relativo no `tar`/`scp`: `C:` é lido como nome de servidor.
+2. Na VPS:
+   ```
+   cd /root/copiloto-app/src && tar -xf /tmp/mudanca.tar && rm /tmp/mudanca.tar
+   cd /root/copiloto-app && docker compose build && docker compose up -d
+   ```
+   Se o `build` falhar, o `up -d` não roda e a versão anterior continua no ar.
+3. Conferir: `docker inspect -f '{{.State.Health.Status}}' copiloto-app` → `healthy`, e testar no navegador.
+4. `git push` (o push é do Wanderson).
 
-Depois de mudar variáveis: **Deployments → Redeploy**.
+Arquivo **apagado** num commit não some da VPS com esse método: apague à mão em `/root/copiloto-app/src`.
+Se a cópia da VPS ficar em dúvida, compare com o repo (md5 de cada arquivo) antes de publicar.
+
+## Variáveis de ambiente
+
+Ficam na VPS, nunca no Git: `/root/copiloto-app/.env` e `.secrets.env` (lista em `deploy/README.md`).
+`APP_URL=https://copiloto.1000vendas.com` é obrigatório. Depois de mudar: `docker compose up -d` (recria o container).
+As `NEXT_PUBLIC_*` entram no build: mudou uma delas, rode `docker compose build` de novo.
 
 ## Supabase Auth
 
-Authentication → URL Configuration:
-- Site URL: `https://copiloto-six-eta.vercel.app`
-- Redirect URLs: `https://copiloto-six-eta.vercel.app/**`
+Authentication → URL Configuration: Site URL e Redirect URLs em `https://copiloto.1000vendas.com` (e `/**`).
 
 ## Migrations
 
-Aplicar em ordem os arquivos de `supabase/migrations/` (via Supabase CLI `supabase db push` ou SQL Editor).
+Arquivos em `supabase/migrations/`, aplicados em ordem (Supabase CLI `supabase db push` ou SQL Editor).
+Toda mudança de estrutura passa pela aprovação do Wanderson antes de rodar.
 
-## Diagnóstico de build sem acesso aos logs
+## Caddy próprio (plano, ainda não executado)
 
-Se o build falhar e os logs não estiverem acessíveis, num branch temporário troque `vercel-build` por
-`mkdir -p public && (npm run lint; npm run typecheck) > public/diag.txt 2>&1; next build` e ative
-`typescript.ignoreBuildErrors` / `eslint.ignoreDuringBuilds` no `next.config.ts`; leia `/diag.txt` no deploy e **reverta**.
+Hoje quem publica `copiloto.1000vendas.com` é o Caddy do CRM (`deskcommcrm-caddy-1`, em
+`/root/DeskcommCRM/docker-compose.prod.yml`, Caddyfile em `/root/DeskcommCRM/Caddyfile`, portas 80/443).
+Desligar o CRM inteiro derruba o Copiloto. Para ficar independente:
 
-## Domínio próprio
+1. Criar `/root/copiloto-caddy/` com `docker-compose.yml` (imagem `caddy:2-alpine`, portas 80/443, rede `copiloto-net`,
+   volumes próprios `/data` e `/config`) e um Caddyfile só com o bloco `copiloto.1000vendas.com`
+   (o mesmo de hoje: `encode gzip`, 403 em `/api/whatsapp/webhook`, `reverse_proxy copiloto-app:3000`).
+2. Validar antes de trocar: `docker run --rm -v .../Caddyfile:/etc/caddy/Caddyfile caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile`.
+3. Troca (o site fica fora por alguns segundos): parar o Caddy do CRM (`docker compose -f docker-compose.prod.yml stop caddy`
+   em `/root/DeskcommCRM`) e subir o novo (`docker compose up -d` em `/root/copiloto-caddy`).
+   O certificado é emitido de novo pelo Let's Encrypt na primeira requisição.
+4. Conferir `https://copiloto.1000vendas.com` e o WhatsApp (o webhook é interno, pela rede `copiloto-net`).
+5. Volta atrás, se der errado: parar o Caddy novo e `start caddy` no CRM. Nada é apagado no caminho.
+6. Só depois, e se quiser, parar ou remover o resto do CRM. O `update.sh` do CRM não pode religar o Caddy dele
+   enquanto o novo estiver nas portas 80/443.
 
-Depois de validar em `*.vercel.app`: Vercel → Settings → Domains → adicionar, e atualizar a Site URL do Supabase.
+Se o CRM continuar ligado (os dois sistemas no ar), o Caddy do CRM precisa continuar sendo o único nas 80/443;
+nesse caso não há o que fazer além de manter o backup `/root/copiloto-app/Caddyfile.crm.bak` em dia.

@@ -88,13 +88,11 @@
 
 - Estoque: importo as tabelas em PDF da Loja 1 e Loja 2. Carro que **sumiu da tabela nova = vendido** e tem que sair do estoque. Verificar se já funciona.
 - Lead de teste "Ashley" pode ser apagado (com meu OK).
-- Leads inflados: os 4 contatos que não são cliente (próprio, loja, parceiro, spam) também têm card de lead `novo`. Decidir: arquivar, marcar ou apagar.
-- Contato novo nasce como `cliente`; lojista/spam ainda é marcado à mão.
-- `DEPLOY.md` ainda descreve a Vercel. Atualizar para o deploy na VPS.
-- DeskcommCRM: o Caddy do Copiloto é o `deskcommcrm-caddy-1`. Antes de desligar o CRM, criar um Caddy próprio.
+- DeskcommCRM: o Caddy do Copiloto é o `deskcommcrm-caddy-1`. Antes de desligar o CRM, criar um Caddy próprio (plano em `DEPLOY.md`).
 
 ## Diário de bordo (changelog)
 
 - 16–17/10/2026: Copiloto migrado da Vercel para a VPS (Docker + WAHA + ponte Claude Code). Vercel e chaves de API antigas apagadas.
 - 18/10/2026: Aula 1 de dados. Coluna `whatsapp_contacts.categoria` (cliente, proprio, loja, parceiro, spam) e 4 contatos marcados. Query "quem está esperando minha resposta".
 - 19/10/2026: Agenda e Tarefas com botão Novo compromisso / Nova tarefa (páginas `/agenda/novo` e `/tarefas/nova`), igual Novo cliente.
+- 19/10/2026: Os 4 leads que não são cliente viraram Perdido ("Não é cliente: ..."). Card do lead ganhou "Tipo de contato" (Cliente/Loja/Parceiro/Próprio/Spam): fora de Cliente, o lead sai do funil. `DEPLOY.md` reescrito para a VPS, com o plano do Caddy próprio.

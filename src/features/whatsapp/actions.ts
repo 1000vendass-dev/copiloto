@@ -2,12 +2,15 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { changeLeadStage } from "@/features/crm/actions";
+import { OPEN_STAGES } from "@/features/crm/constants";
 import { getSession } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { ensureConversation, findAccount, recordMessage } from "@/lib/whatsapp/ingest";
 import { onlyDigits, shortId, toWaId } from "@/lib/whatsapp/phone";
 import { sendText, wahaSession } from "@/lib/whatsapp/waha";
+import { CONTACT_TYPES, NOT_CUSTOMER_PREFIX } from "./contact-types";
 
 export type WaResult = { ok: boolean; error?: string };
 
@@ -69,6 +72,27 @@ export async function discardDraft(draftId: string, leadId: string): Promise<WaR
   const supabase = await createClient();
   const { error } = await supabase.from("whatsapp_drafts").update({ status: "descartado" }).eq("id", draftId).eq("status", "pendente");
   if (error) return { ok: false, error: "Não foi possível descartar." };
+  revalidatePath(`/leads/${leadId}`);
+  return { ok: true };
+}
+
+/**
+ * Muda o tipo do contato (cliente, loja, parceiro...). Quem não é cliente sai do funil como Perdido;
+ * voltar para Cliente reabre o lead como Novo, se ele foi fechado por esta regra.
+ */
+export async function setContactType(leadId: string, type: string): Promise<WaResult> {
+  await getSession();
+  if (!uuid.safeParse(leadId).success || !CONTACT_TYPES.some((t) => t.value === type)) return { ok: false, error: "Dados inválidos." };
+  const supabase = await createClient();
+  const { error, count } = await supabase.from("whatsapp_contacts").update({ categoria: type }, { count: "exact" }).eq("lead_id", leadId);
+  if (error || !count) return { ok: false, error: "Não foi possível salvar o tipo do contato." };
+
+  const { data: lead } = await supabase.from("leads").select("stage,lost_reason").eq("id", leadId).maybeSingle();
+  if (lead && type !== "cliente" && (OPEN_STAGES as string[]).includes(lead.stage)) {
+    await changeLeadStage(leadId, "perdido", NOT_CUSTOMER_PREFIX + type);
+  } else if (lead && type === "cliente" && lead.stage === "perdido" && lead.lost_reason?.startsWith(NOT_CUSTOMER_PREFIX)) {
+    await changeLeadStage(leadId, "novo");
+  }
   revalidatePath(`/leads/${leadId}`);
   return { ok: true };
 }

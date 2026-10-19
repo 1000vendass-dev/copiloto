@@ -12,6 +12,7 @@ import {
 import { Timeline } from "@/features/crm/components/timeline";
 import { getLead } from "@/features/crm/queries";
 import { statusLabel } from "@/features/inventory/constants";
+import { ContactTypeControl } from "@/features/whatsapp/contact-type-control";
 import { getLeadWhatsApp } from "@/features/whatsapp/queries";
 import { WhatsAppChat } from "@/features/whatsapp/whatsapp-chat";
 import { getSession } from "@/lib/auth";
@@ -70,6 +71,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
             <CardTitle>Negociação</CardTitle>
             <StageControl key={lead.stage} leadId={lead.id} stage={lead.stage} />
             <TemperatureControl leadId={lead.id} value={lead.temperature} />
+            {whatsapp.contactType ? <ContactTypeControl leadId={lead.id} value={whatsapp.contactType} /> : null}
             <dl className="space-y-2 text-sm">
               {info.filter(([, v]) => v).map(([k, v]) => (
                 <div key={k}><dt className="text-xs text-fg-muted">{k}</dt><dd>{v}</dd></div>

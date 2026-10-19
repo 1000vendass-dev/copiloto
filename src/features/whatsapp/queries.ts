@@ -10,7 +10,7 @@ export async function getLeadWhatsApp(leadId: string) {
   const supabase = await createClient();
   const [account, contacts, drafts] = await Promise.all([
     supabase.from("whatsapp_accounts").select("id").eq("provider", "waha").limit(1).maybeSingle(),
-    supabase.from("whatsapp_contacts").select("id").eq("lead_id", leadId),
+    supabase.from("whatsapp_contacts").select("id,categoria").eq("lead_id", leadId),
     supabase.from("whatsapp_drafts").select("id,body,source,created_at").eq("lead_id", leadId).eq("status", "pendente").order("created_at", { ascending: false }),
   ]);
 
@@ -25,5 +25,6 @@ export async function getLeadWhatsApp(leadId: string) {
       messages = ((data ?? []) as WaMessage[]).reverse();
     }
   }
-  return { enabled: Boolean(account.data), messages, drafts: (drafts.data ?? []) as WaDraft[] };
+  const contactType = (contacts.data?.[0]?.categoria as string | undefined) ?? null;
+  return { enabled: Boolean(account.data), messages, drafts: (drafts.data ?? []) as WaDraft[], contactType };
 }

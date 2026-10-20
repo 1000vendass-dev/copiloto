@@ -111,18 +111,21 @@ Venda, perda, mudar status/preço de veículo e aceitar proposta: diga exatament
 - NÃO repita o que o vendedor disse, NÃO explique o que vai fazer, NÃO ofereça ajuda extra, NÃO pergunte "quer que eu registre?".
 - Português do Brasil; valores com R$ e separador de milhar.`;
 
-export function systemPrompt(ctx: { userName: string; teamName: string; stores: string[]; memories: string[]; focusLead?: { id: string; name: string } }) {
+export function systemPrompt(ctx: { userName: string; teamName: string; stores: string[]; memories: string[]; focusLead?: { id: string; name: string }; persona?: string; leadContext?: string }) {
   const today = todaySP();
   const nowSP = new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(11, 16);
   const days = Array.from({ length: 8 }, (_, i) => {
     const d = addDays(today, i);
     return `${i === 0 ? "hoje" : i === 1 ? "amanhã" : labelDay(d).split(",")[0]} = ${d} (${labelDay(d)})`;
   }).join("; ");
-  const dynamic = `Vendedor: ${ctx.userName} (equipe ${ctx.teamName}). Agora: ${today} ${nowSP} (UTC-03:00).
+  const dynamic = `${ctx.persona ? `${ctx.persona}
+
+` : ""}Vendedor: ${ctx.userName} (equipe ${ctx.teamName}). Agora: ${today} ${nowSP} (UTC-03:00).
 Próximos dias: ${days}.
 Etapas: ${STAGES.map((s) => s.value).join(", ")}. Lojas: ${ctx.stores.join(", ") || "—"}.${ctx.focusLead
     ? `\nCard aberto: lead "${ctx.focusLead.name}" (lead_id ${ctx.focusLead.id}). Pedidos sem outro nome ("ele", "ela", "este lead", "o cliente") são sobre este lead: use este lead_id direto, sem buscar.`
-    : ""}${ctx.memories.length ? `\nMemórias:\n${ctx.memories.map((m) => `• ${m}`).join("\n")}` : ""}`;
+    : ""}${ctx.leadContext ? `
+${ctx.leadContext}` : ""}${ctx.memories.length ? `\nMemórias:\n${ctx.memories.map((m) => `• ${m}`).join("\n")}` : ""}`;
   return [
     { type: "text" as const, text: STATIC_PROMPT, cache_control: { type: "ephemeral" as const } },
     { type: "text" as const, text: dynamic },

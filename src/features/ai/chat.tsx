@@ -9,7 +9,7 @@ import { Alert } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 type Action = { tool: string; ok: boolean; status: string; summary: string; lead?: { id: string; name: string; created: boolean } };
-type Msg = { id?: string; role: "user" | "assistant"; content: string; meta?: { actions?: Action[] }; pending?: boolean; error?: boolean };
+type Msg = { id?: string; role: "user" | "assistant"; content: string; meta?: { actions?: Action[]; kind?: string }; pending?: boolean; error?: boolean };
 
 const TOOL_LABEL: Record<string, string> = {
   registrar_atendimento: "Registrou atendimento", create_vehicle: "Cadastrou veículo", share_vehicle: "Gerou link da ficha",
@@ -19,8 +19,10 @@ const TOOL_LABEL: Record<string, string> = {
   create_task: "Criou tarefa", update_task: "Alterou tarefa", complete_task: "Concluiu tarefa", search_tasks: "Buscou tarefas",
   create_appointment: "Agendou", search_appointments: "Consultou agenda", create_activity: "Registrou contato", search_activities: "Leu timeline",
   create_note: "Salvou nota", search_notes: "Buscou notas", search_proposals: "Buscou propostas", create_proposal: "Criou proposta",
-  update_proposal: "Alterou proposta", who_to_call_today: "Priorizou contatos", save_memory: "Guardou memória",
+  update_proposal: "Alterou proposta", who_to_call_today: "Priorizou contatos", save_memory: "Guardou memória", relatorio: "Para amanhã",
 };
+
+const KIND_LABEL: Record<string, string> = { relatorio: "🌙 Relatório do dia", briefing: "☀️ Briefing", alerta: "⚠️ Alerta", revisao: "📈 Revisão" };
 
 const SUGGESTIONS = [
   "Quem eu preciso chamar hoje?",
@@ -168,6 +170,7 @@ export function CopilotoChat({ lead, className }: { lead?: { id: string; name: s
             <div key={m.id ?? i} className={cn("flex", m.role === "user" ? "justify-end" : "justify-start")}>
               <div className={cn("max-w-[88%] rounded-3xl px-4 py-2.5 text-[15px] leading-snug",
                 m.role === "user" ? "bg-brand text-white" : m.error ? "border border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200" : "glass")}>
+                {m.meta?.kind ? <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-brand">{KIND_LABEL[m.meta.kind] ?? "Do Copiloto"}</div> : null}
                 {m.pending ? <span className="inline-flex items-center gap-2 text-fg-muted"><span className="h-2 w-2 animate-pulse rounded-full bg-brand" />Consultando…</span> : <Rich text={m.content} />}
                 {m.meta?.actions?.length ? (
                   <div className="mt-2 flex flex-wrap gap-1 border-t border-border pt-2">

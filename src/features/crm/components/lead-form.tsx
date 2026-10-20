@@ -46,7 +46,7 @@ export function LeadForm({
         <Field label="E-mail" htmlFor="email">
           <Input id="email" name="email" type="email" defaultValue={lead?.email ?? ""} />
         </Field>
-        <Field label="Origem" htmlFor="source">
+        <Field label="Origem" htmlFor="source" hint="De onde veio? Mostra qual canal mais vende.">
           <Input id="source" name="source" list="sources" defaultValue={lead?.source ?? ""} />
           <datalist id="sources">{SOURCES.map((s) => <option key={s} value={s} />)}</datalist>
         </Field>

@@ -244,7 +244,7 @@ export const TOOLS: Tool[] = [
         ctx.supabase.from("notes").select("content,created_at").eq("lead_id", id).order("created_at", { ascending: false }).limit(10),
         ctx.supabase.from("tasks").select("id,title,due_at,priority").eq("lead_id", id).eq("status", "pendente").order("due_at"),
         ctx.supabase.from("appointments").select("id,title,type,starts_at,status").eq("lead_id", id).gte("starts_at", new Date(Date.now() - 86400000).toISOString()).order("starts_at"),
-        ctx.supabase.from("ai_memory").select("content,importance").eq("lead_id", id).order("importance", { ascending: false }).limit(10),
+        ctx.supabase.from("ai_memory").select("content,importance").eq("lead_id", id).eq("status", "ativa").order("importance", { ascending: false }).limit(10),
       ]);
       if (!lead.data) return fail("Lead não encontrado.");
       let vehicle: Json | null = null;

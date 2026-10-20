@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 /** Tabelas que, ao mudar, atualizam a tela aberta (precisam estar na publicação supabase_realtime). */
-const TABLES = ["whatsapp_conversations", "whatsapp_messages", "whatsapp_drafts", "leads", "tasks", "appointments"] as const;
+const TABLES = ["whatsapp_conversations", "whatsapp_messages", "whatsapp_drafts", "leads", "tasks", "appointments", "copilot_runs"] as const;
 const DEBOUNCE_MS = 700;
 const FALLBACK_MS = 60_000;
 

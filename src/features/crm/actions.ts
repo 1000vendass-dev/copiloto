@@ -332,3 +332,21 @@ export async function deleteCustomer(customerId: string): Promise<ActionResult> 
   revalidateCrm();
   redirect("/clientes");
 }
+
+/** "Veio na loja": registra a visita na linha do tempo (base da métrica lead → visita) e leva o lead para a etapa Visita. */
+export async function registerVisit(leadId: string): Promise<ActionResult> {
+  const session = await getSession();
+  if (!uuid.safeParse(leadId).success) return { ok: false, error: "Lead inválido." };
+  const supabase = await createClient();
+  const { data: lead } = await supabase.from("leads").select("id,stage,customer_id").eq("id", leadId).maybeSingle();
+  if (!lead) return { ok: false, error: "Lead não encontrado." };
+  const now = new Date().toISOString();
+  const { error } = await supabase.from("activities").insert({
+    team_id: session.teamId, owner_id: session.userId, lead_id: leadId, customer_id: lead.customer_id, type: "visita", title: "Veio na loja", occurred_at: now,
+  });
+  if (error) return { ok: false, error: dbError(error.message) };
+  await supabase.from("leads").update({ last_contact_at: now }).eq("id", leadId);
+  if (["novo", "primeiro_contato", "atendimento", "qualificado"].includes(lead.stage as string)) await changeLeadStage(leadId, "visita");
+  revalidateCrm(leadId, lead.customer_id as string | null);
+  return { ok: true };
+}

@@ -1,4 +1,4 @@
-import { BarChart3, CalendarDays, FileText, Car, CheckSquare, Contact, Home, Menu, Settings, Sparkles, Users, type LucideIcon } from "lucide-react";
+import { BarChart3, BrainCircuit, CalendarDays, FileText, Car, CheckSquare, Contact, Home, Menu, Settings, Sparkles, Users, type LucideIcon } from "lucide-react";
 
 export type NavItem = { href: string; label: string; icon: LucideIcon; mobile?: boolean };
 
@@ -8,6 +8,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/copiloto", label: "Copiloto", icon: Sparkles, mobile: true },
   { href: "/leads", label: "Leads", icon: Users, mobile: true },
   { href: "/estoque", label: "Estoque", icon: Car, mobile: true },
+  { href: "/ia", label: "Minha IA", icon: BrainCircuit },
   { href: "/agenda", label: "Agenda", icon: CalendarDays },
   { href: "/tarefas", label: "Tarefas", icon: CheckSquare },
   { href: "/painel", label: "Painel", icon: BarChart3 },

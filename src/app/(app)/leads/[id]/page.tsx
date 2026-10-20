@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { CardTitle } from "@/components/ui/card";
 import {
   ContactForm, ConvertToCustomerButton, CustomerLink, DeleteLeadButton, FollowUpForm, NoteForm, NoteList,
-  StageControl, TagEditor, TaskList, TemperatureControl,
+  StageControl, TagEditor, TaskList, TemperatureControl, VisitButton,
 } from "@/features/crm/components/lead-controls";
 import { LeadWorkspace } from "@/features/crm/components/lead-workspace";
 import { Timeline } from "@/features/crm/components/timeline";
@@ -56,6 +56,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
   const profile = (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-2 border-b border-border pb-4">
+        <VisitButton leadId={lead.id} />
         <Link href={`/propostas/nova?lead=${lead.id}`}><Button variant="outline" size="sm"><FileText className="h-4 w-4" />Proposta</Button></Link>
         <Link href={`/leads/${lead.id}/editar`}><Button variant="outline" size="sm"><Pencil className="h-4 w-4" />Editar</Button></Link>
         <div className="ml-auto"><DeleteLeadButton leadId={lead.id} /></div>

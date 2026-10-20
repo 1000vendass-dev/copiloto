@@ -32,11 +32,12 @@
 ## Arquitetura (como está hoje)
 
 - **Tudo na minha VPS (HostGator).** Vercel desativada. Endereço: `https://copiloto.1000vendas.com`.
-- **4 containers Docker** na rede própria `copiloto-net`, separada do CRM:
+- **5 containers Docker** na rede própria `copiloto-net`, separada do CRM:
   1. `copiloto-app`: Next.js (repo `github.com/1000vendass-dev/copiloto`, branch `main`)
   2. `copiloto-waha`: WAHA (WhatsApp), número "Wanderson consultor"
   3. `copiloto-claude`: Claude Code logado na minha assinatura + ponte HTTP com senha
   4. `copiloto-whisper`: transcrição de áudio (Whisper, modelo small, ~1 GB). Skill reutilizável: `transcricao-whisper`
+  5. `copiloto-cron`: relógio das rotinas da IA (hora em hora, 06h–00h)
 - **Banco:** Supabase, projeto "Copiloto". Já tem provider `waha` e a tabela `whatsapp_drafts` (rascunhos).
 - **Ponto em comum com o CRM:** só o Caddy (portas 80/443), com 1 bloco para o Copiloto. ⚠️ Se o `update.sh` do CRM reescrever o Caddyfile, o bloco some. Backup em `/root/copiloto-app/Caddyfile.crm.bak`.
 - **Acesso à VPS:** atalho `ssh vps`.
@@ -103,4 +104,5 @@
 - 19/10/2026: Novo visual do app inteiro: tema segue o celular (claro limpo / escuro com vidro), azul de destaque, fonte Inter, botões em pílula, cards de vidro, menu inferior em pílula flutuante, janelas flutuantes com alça.
 - 19/10/2026: Configurações > Aparência: tema (automático/claro/escuro) e 6 cores de destaque, salvos no aparelho (cookie). Meu dia com os 4 números em grade 2x2.
 - 19/10/2026: Leads abre no funil, cards na ordem da última conversa (como WhatsApp) com bolinha verde de não lidas; selo no menu Leads. App atualiza sozinho (Supabase Realtime). Notificações no celular (Web Push) ao chegar mensagem de cliente; ativar em Configurações > Notificações.
+- 20/10/2026: Copiloto IA Fase 1: aba "Minha IA" (identidade, personalidade, autonomia, rotinas, memória, atividade), rotina da noite (resumo vivo por cliente, memória do cliente, tarefas, relatório no chat + push), relógio `copiloto-cron` de hora em hora das 06h à 00h, botão Veio na loja. Design completo em `docs/COPILOTO-IA.md`.
 - 19/10/2026: Lead sem nome: IA e cadastro aceitam só telefone ("Sem nome · telefone"); o nome entra sozinho pelo perfil do WhatsApp (1ª mensagem ou contato do WAHA) ou quando a IA lê o nome na conversa. Chat da IA com botão "Abrir conversa" do lead. Chat do Copiloto sem vão embaixo.

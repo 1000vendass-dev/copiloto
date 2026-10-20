@@ -4,7 +4,7 @@ import { useFormAction } from "@/lib/use-form-action";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { Check, Plus, Trash2 } from "lucide-react";
+import { Check, MapPinCheck, Plus, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, EmptyState } from "@/components/ui/card";
@@ -14,7 +14,7 @@ import { cn, formatDateTime } from "@/lib/utils";
 import type { Tag, Task } from "@/types/db";
 import {
   addNote, changeLeadStage, convertLeadToCustomer, createFollowUp, deleteLead, deleteNote,
-  registerContact, setLeadTemperature, setTaskStatus, toggleTag, type ActionResult,
+  registerContact, registerVisit, setLeadTemperature, setTaskStatus, toggleTag, type ActionResult,
 } from "../actions";
 import { CONTACT_TYPES, STAGES, TEMPERATURES } from "../constants";
 
@@ -267,4 +267,20 @@ export function DeleteLeadButton({ leadId }: { leadId: string }) {
 
 export function CustomerLink({ id, name }: { id: string; name: string }) {
   return <Link href={`/clientes/${id}`} className="text-brand hover:underline">{name}</Link>;
+}
+
+/** Um toque: o cliente veio na loja. Registra a visita e move o lead para a etapa Visita. */
+export function VisitButton({ leadId }: { leadId: string }) {
+  const [pending, start] = useTransition();
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <span className="inline-flex flex-col items-start">
+      <Button size="sm" variant={done ? "secondary" : "primary"} disabled={pending || done}
+        onClick={() => start(async () => { const r = await registerVisit(leadId); if (r.ok) setDone(true); else setError(r.error ?? "Erro"); })}>
+        <MapPinCheck className="h-4 w-4" />{done ? "Visita registrada" : pending ? "Registrando…" : "Veio na loja"}
+      </Button>
+      {error ? <span className="mt-1 text-xs text-red-600">{error}</span> : null}
+    </span>
+  );
 }

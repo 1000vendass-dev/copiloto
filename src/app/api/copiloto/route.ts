@@ -1,6 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { CopilotoUnavailable, isConfirmation, runCopiloto, systemPrompt, type ChatMessage } from "@/features/ai/agent";
+import { defaultConfig } from "@/features/copilot/config";
+import { chatPersona } from "@/features/copilot/persona";
+import { getProfile, storeFacts } from "@/features/copilot/profile";
 import { listStores } from "@/features/inventory/queries";
 import { getSiteOrigin } from "@/lib/site-url";
 import { createClient } from "@/lib/supabase/server";
@@ -24,6 +27,21 @@ async function context() {
 type Ctx = NonNullable<Awaited<ReturnType<typeof context>>>;
 const uuid = z.string().uuid();
 const leadParam = (req: NextRequest) => { const v = req.nextUrl.searchParams.get("leadId"); return v && uuid.safeParse(v).success ? v : null; };
+
+/** Resumo vivo e fatos do cliente (feitos pela rotina da noite): a IA não precisa reler as mensagens antigas. */
+async function focusLeadContext(c: Ctx, leadId: string): Promise<string> {
+  const [{ data: lead }, { data: mem }] = await Promise.all([
+    c.supabase.from("leads").select("ai_summary,ai_insights").eq("id", leadId).maybeSingle(),
+    c.supabase.from("ai_memory").select("content").eq("lead_id", leadId).eq("scope", "cliente").eq("status", "ativa").order("importance", { ascending: false }).limit(12),
+  ]);
+  const ins = (lead?.ai_insights ?? {}) as { travas?: string[]; sinais?: string[]; objecoes?: string[]; dados_faltando?: string[] };
+  const list = (t: string, a?: string[]) => (a?.length ? `${t}: ${a.join("; ")}` : "");
+  return [
+    lead?.ai_summary ? `Resumo atual deste cliente (feito pela rotina da noite): ${lead.ai_summary}` : "",
+    (mem ?? []).length ? `Fatos guardados do cliente: ${(mem ?? []).map((m) => m.content).join(" | ")}` : "",
+    list("Travas", ins.travas), list("Sinais de compra", ins.sinais), list("Objeções", ins.objecoes), list("Dados que faltam", ins.dados_faltando),
+  ].filter(Boolean).join("\n");
+}
 
 /** Conversa do chat geral (meta.leadId vazio) ou do balão de um card (meta.leadId = lead). */
 function thread(c: Ctx, leadId: string | null) {
@@ -74,11 +92,15 @@ export async function POST(req: NextRequest) {
   const meta = leadId ? { leadId } : null;
 
   // histórico curto (só texto) da mesma conversa: o contexto de negócio vem do banco via ferramentas, não do chat
-  const [{ data: hist }, { data: mems }, stores] = await Promise.all([
+  const [{ data: hist }, profile, facts, stores, leadContext] = await Promise.all([
     thread(c, leadId).order("created_at", { ascending: false }).limit(6),
-    c.supabase.from("ai_memory").select("content").in("scope", ["geral", "preferencia"]).order("importance", { ascending: false }).limit(15),
+    getProfile(c.supabase, c.userId),
+    storeFacts(c.supabase, c.teamId, 15),
     listStores(),
+    focusLead ? focusLeadContext(c, focusLead.id) : Promise.resolve(""),
   ]);
+  // personalidade + o que a IA sabe da loja e do vendedor (configurados na aba IA)
+  const persona = chatPersona(profile?.config ?? defaultConfig(), c.userName, facts);
   const history: ChatMessage[] = (hist ?? []).reverse().map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
   while (history.length && history[0].role !== "user") history.shift();
   // a API exige alternância user/assistant
@@ -92,7 +114,7 @@ export async function POST(req: NextRequest) {
     const { reply, actions, usage } = await runCopiloto({
       apiKey,
       model: process.env.COPILOTO_MODEL || "claude-haiku-4-5",
-      system: systemPrompt({ userName: c.userName, teamName: c.teamName, stores, memories: (mems ?? []).map((m) => m.content), focusLead }),
+      system: systemPrompt({ userName: c.userName, teamName: c.teamName, stores, memories: [], focusLead, persona, leadContext }),
       history: clean,
       userText: text,
       ctx: { supabase: c.supabase, userId: c.userId, teamId: c.teamId, userConfirmed: isConfirmation(text), origin: await getSiteOrigin() },

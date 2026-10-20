@@ -19,9 +19,11 @@ const baseType = (mimetype: string) => mimetype.split(";")[0].trim().toLowerCase
 /** Fala → texto. Devolve null se o serviço estiver fora (o áudio continua salvo; dá para transcrever depois). */
 export async function transcribeAudio(bytes: Uint8Array, mimetype: string): Promise<string | null> {
   const base = (process.env.WHISPER_URL ?? "http://copiloto-whisper:9000").replace(/\/$/, "");
+  // dica de vocabulário: sem ela o Whisper ouvia "Anderson" no lugar de "Wanderson" e "Virar Real" no lugar de "Vila Real"
+  const hint = process.env.WHISPER_PROMPT ?? "Conversa de vendas de carros. Vendedor: Wanderson, da Vila Real Veículos, bairro Ponte Preta, Campinas. Rua da Abolição, 751.";
   const form = new FormData();
   form.append("audio_file", new Blob([new Uint8Array(bytes)], { type: baseType(mimetype) }), `audio.${EXT[baseType(mimetype)] ?? "bin"}`);
-  const res = await fetch(`${base}/asr?task=transcribe&language=pt&output=txt&vad_filter=true&encode=true`, {
+  const res = await fetch(`${base}/asr?task=transcribe&language=pt&output=txt&vad_filter=true&encode=true${hint ? `&initial_prompt=${encodeURIComponent(hint)}` : ""}`, {
     method: "POST", body: form, signal: AbortSignal.timeout(180_000),
   });
   if (!res.ok) throw new Error(`Whisper respondeu ${res.status}`);

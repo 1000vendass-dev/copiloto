@@ -91,6 +91,7 @@ function leadPrompt(lead: LeadRow, sellerName: string, summary: string | null, f
     `RESUMO ANTERIOR (o que você já sabia): ${summary ?? "nenhum: esta é a primeira análise deste cliente"}`,
     `FATOS GUARDADOS (id → texto): ${facts.length ? facts.map((f) => `${f.id} → ${f.content}`).join(" | ") : "nenhum"}`,
     `TAREFAS ABERTAS: ${tasks.length ? tasks.map((t) => `${t.title}${t.due_at ? ` (${fmtWhen.format(new Date(t.due_at))})` : ""}`).join("; ") : "nenhuma"}`,
+    `ATENÇÃO: os áudios são transcritos automaticamente e podem errar nomes e palavras (o vendedor se chama ${sellerName}; a loja é a Vila Real Veículos). Não conclua nada a partir de diferenças de grafia ou de nome.`,
     `CONVERSA NOVA (cliente = ele; vendedor = ${sellerName}):\n${convo}`,
     [
       "COMO RESPONDER:",

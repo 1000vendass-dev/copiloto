@@ -8,7 +8,7 @@ import { pushToUser } from "@/lib/push";
 import { fillLeadName } from "@/lib/whatsapp/ingest";
 import { CLASSES, classify, type Classe, type Intencao } from "./classify";
 import type { AiConfig } from "./config";
-import { loadEngagement } from "./engagement";
+import { loadEngagement, type Engagement } from "./engagement";
 import { callJson, emptyUsage, type Usage } from "./llm";
 import { buildSystem } from "./persona";
 import { storeFacts } from "./profile";
@@ -35,6 +35,8 @@ export type NightlyStats = {
 const MAX_LEADS = Number(process.env.NIGHTLY_MAX_LEADS) || 40;
 const MAX_MS = 25 * 60 * 1000;
 const MAX_MSGS = 60;
+/** A IA NUNCA lê mensagem com mais de 1 dia: o histórico está no resumo vivo, atualizado toda noite. */
+const READ_WINDOW_MS = 24 * 3600 * 1000;
 
 const leadAnalysis = z.object({
   resumo_dia: z.string().min(1).max(700),
@@ -84,7 +86,8 @@ async function leadMessages(admin: Admin, leadId: string, since: string | null) 
   if (!convIds.length) return [];
   let q = admin.from("whatsapp_messages").select("direction,type,body,transcript,sent_at").in("conversation_id", convIds)
     .order("sent_at", { ascending: false }).limit(MAX_MSGS);
-  if (since) q = q.gt("sent_at", since);
+  const floor = new Date(Date.now() - READ_WINDOW_MS).toISOString();
+  q = q.gt("sent_at", since && since > floor ? since : floor);
   const { data } = await q;
   return (data ?? []).reverse();
 }
@@ -98,8 +101,16 @@ function messageText(m: { type: string; body: string | null; transcript: string 
   return (m.body ?? "").trim();
 }
 
+/** "há 2 dias", "há 5 horas": só o tempo, sem ler conteúdo antigo. */
+function ago(iso: string | null): string {
+  if (!iso) return "nenhuma nos últimos 30 dias";
+  const h = Math.max(0, Math.floor((Date.now() - Date.parse(iso)) / 3600000));
+  const d = Math.floor(h / 24);
+  return h < 24 ? `há ${h} hora${h === 1 ? "" : "s"}` : `há ${d} dia${d === 1 ? "" : "s"}`;
+}
+
 function leadPrompt(lead: LeadRow, sellerName: string, summary: string | null, facts: { id: string; content: string }[],
-  tasks: { title: string; due_at: string | null }[], msgs: Awaited<ReturnType<typeof leadMessages>>): string {
+  tasks: { title: string; due_at: string | null }[], msgs: Awaited<ReturnType<typeof leadMessages>>, e: Engagement | undefined): string {
   const convo = msgs.map((m) => `${fmtWhen.format(new Date(m.sent_at as string))} ${m.direction === "entrada" ? "CLIENTE" : "VENDEDOR"}: ${messageText(m as never).slice(0, 700)}`).join("\n");
   return [
     `Hoje: ${labelDay(todaySP())} (${todaySP()}). Vendedor: ${sellerName}.`,
@@ -109,7 +120,9 @@ function leadPrompt(lead: LeadRow, sellerName: string, summary: string | null, f
     `FATOS GUARDADOS (id → texto): ${facts.length ? facts.map((f) => `${f.id} → ${f.content}`).join(" | ") : "nenhum"}`,
     `TAREFAS ABERTAS: ${tasks.length ? tasks.map((t) => `${t.title}${t.due_at ? ` (${fmtWhen.format(new Date(t.due_at))})` : ""}`).join("; ") : "nenhuma"}`,
     `ATENÇÃO: os áudios são transcritos automaticamente e podem errar nomes e palavras (o vendedor se chama ${sellerName}; a loja é a Vila Real Veículos). Não conclua nada a partir de diferenças de grafia ou de nome.`,
-    `CONVERSA NOVA (cliente = ele; vendedor = ${sellerName}):\n${convo}`,
+    `SITUAÇÃO DA CONVERSA (medida pelo sistema; é tudo o que você sabe do passado além do resumo): última resposta do cliente ${ago(e?.ultimaDele ?? null)}; mensagens do vendedor sem resposta desde então: ${e?.semResposta ?? 0}; respostas do cliente nos últimos 3 dias: ${e?.respostas3d ?? 0}.`,
+    `CONVERSA DAS ÚLTIMAS 24H (cliente = ele; vendedor = ${sellerName}). Você só vê o último dia; o que veio antes está no RESUMO ANTERIOR. Não invente o que aconteceu antes dele:
+${convo}`,
     [
       "COMO RESPONDER:",
       "- resumo_dia: o que aconteceu hoje, em 2 a 4 frases.",
@@ -221,6 +234,7 @@ async function applyAnalysis(ctx: NightlyCtx, lead: LeadRow, a: LeadAnalysis, fa
   await admin.from("leads").update({
     ai_summary: a.resumo_vivo, ai_summary_at: nowIso,
     ai_insights: {
+      ...((lead.ai_insights as Record<string, unknown> | null) ?? {}),
       travas: a.travas, sinais: a.sinais, objecoes: a.objecoes, dados_faltando: a.dados_faltando,
       sugestao_etapa: a.sugestao_etapa, intencao: a.intencao, motivo_classificacao: a.motivo_classificacao,
       ruido_motivo: a.ruido_motivo, divergencias: diverg, atualizado_em: nowIso,
@@ -237,7 +251,7 @@ async function applyAnalysis(ctx: NightlyCtx, lead: LeadRow, a: LeadAnalysis, fa
 
 async function dueLeads(admin: Admin, teamId: string): Promise<LeadRow[]> {
   const { data } = await admin.from("leads")
-    .select("id,name,phone,stage,temperature,interest,budget_max,payment_method,trade_in,purchase_timeframe,source,next_action,last_contact_at,ai_summary,ai_summary_at")
+    .select("id,name,phone,stage,temperature,interest,budget_max,payment_method,trade_in,purchase_timeframe,source,next_action,last_contact_at,ai_summary,ai_summary_at,ai_insights")
     .eq("team_id", teamId).not("last_contact_at", "is", null).neq("stage", "perdido")
     .order("last_contact_at", { ascending: false }).limit(300);
   const due = ((data ?? []) as LeadRow[]).filter((l) => !l.ai_summary_at || (l.last_contact_at as string) > (l.ai_summary_at as string));
@@ -282,7 +296,9 @@ async function reclassifyAll(ctx: NightlyCtx, stats: NightlyStats): Promise<Recl
     });
     stats.classes[classe]++;
     out.byClass[classe].push(lead.name);
-    const novaTemp = CLASSES[classe].temperature;
+    // se o vendedor mexeu nos botões de temperatura nos últimos 3 dias, a IA respeita e não desfaz
+    const manual = typeof ins.temp_manual_at === "string" && Date.now() - Date.parse(ins.temp_manual_at) < 3 * 86400000;
+    const novaTemp = manual ? (lead.temperature ?? CLASSES[classe].temperature) : CLASSES[classe].temperature;
     const mudouClasse = ins.classe !== classe;
     const mudouTemp = lead.temperature !== novaTemp;
     if (!mudouClasse && !mudouTemp && ins.classe_motivo === motivo) continue;
@@ -294,11 +310,13 @@ async function reclassifyAll(ctx: NightlyCtx, stats: NightlyStats): Promise<Recl
     if (error) { stats.errors++; continue; }
     if (mudouClasse) stats.classChanges++;
     if (mudouTemp) stats.tempChanges++;
-    if (mudouClasse || mudouTemp) {
+    if (mudouTemp) {
       await admin.from("activities").insert({
-        team_id: teamId, owner_id: userId, lead_id: lead.id, type: "ia", title: `IA: ${CLASSES[classe].label}`, occurred_at: nowIso,
-        description: `${motivo}.${mudouTemp ? ` Temperatura ${lead.temperature ?? "sem"} → ${novaTemp}.` : ""}`,
+        team_id: teamId, owner_id: userId, lead_id: lead.id, type: "ia", occurred_at: nowIso,
+        title: `IA ajustou a temperatura: ${lead.temperature ?? "sem"} → ${novaTemp}`, description: motivo,
       });
+    }
+    if (mudouClasse || mudouTemp) {
       out.moves.push({ name: lead.name, classe, motivo, tempAntes: lead.temperature, tempDepois: novaTemp, mudouClasse, mudouTemp });
     }
   }
@@ -361,6 +379,7 @@ export async function runNightly(ctx: NightlyCtx): Promise<NightlyStats> {
   const batch = due.slice(0, MAX_LEADS);
   if (due.length > MAX_LEADS) stats.partial = true;
 
+  const batchEng = await loadEngagement(admin, batch.map((l) => l.id));
   const done: Done[] = [];
   let slot = 0;
   for (const lead of batch) {
@@ -379,7 +398,7 @@ export async function runNightly(ctx: NightlyCtx): Promise<NightlyStats> {
       const factList = (mem ?? []) as { id: string; content: string }[];
       const { data: a, usage: u } = await callJson({
         system, tier: "haiku", schema: leadAnalysis,
-        prompt: leadPrompt(lead, userName, (lead.ai_summary as string | null) ?? null, factList, (tasks ?? []) as { title: string; due_at: string | null }[], msgs),
+        prompt: leadPrompt(lead, userName, (lead.ai_summary as string | null) ?? null, factList, (tasks ?? []) as { title: string; due_at: string | null }[], msgs, batchEng.get(lead.id)),
       });
       usage.input += u.input; usage.output += u.output; usage.calls += u.calls;
       const nextTitle = await applyAnalysis(ctx, lead, a, new Set(factList.map((f) => f.id)), slot, stats);

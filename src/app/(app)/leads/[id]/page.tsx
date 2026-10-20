@@ -10,7 +10,7 @@ import {
 } from "@/features/crm/components/lead-controls";
 import { LeadWorkspace } from "@/features/crm/components/lead-workspace";
 import { Timeline } from "@/features/crm/components/timeline";
-import { CLASSES, type Classe } from "@/features/copilot/classify";
+import type { Classe } from "@/features/copilot/classify";
 import { stageLabel } from "@/features/crm/constants";
 import { getLead } from "@/features/crm/queries";
 import { statusLabel } from "@/features/inventory/constants";
@@ -54,6 +54,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
     ["Motivo da perda", lead.stage === "perdido" ? lead.lost_reason : null],
   ];
 
+  const insights = (lead.ai_insights ?? {}) as Insights;
   const profile = (
     <div className="space-y-5">
       <div className="space-y-2 border-b border-border pb-4">
@@ -70,6 +71,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
       <Section title="Negociação">
         <StageControl key={lead.stage} leadId={lead.id} stage={lead.stage} />
         <TemperatureControl leadId={lead.id} value={lead.temperature} />
+        {insights.classe_motivo ? <p className="-mt-1 text-xs text-fg-muted">IA: {insights.classe_motivo}</p> : null}
         {whatsapp.contactType
           ? <ContactTypeControl leadId={lead.id} value={whatsapp.contactType} />
           : <p className="text-xs text-fg-muted">Tipo de contato: cadastre o telefone (Editar) para ligar ao WhatsApp.</p>}
@@ -130,13 +132,6 @@ function AiSummary({ lead }: { lead: { id: string; stage: string; ai_summary?: s
         <CardTitle>Resumo da IA</CardTitle>
         {lead.ai_summary_at ? <span className="text-[11px] text-fg-muted">{formatDateTime(lead.ai_summary_at)}</span> : null}
       </div>
-      {ins.classe ? (
-        <p className="text-sm">
-          <span className="font-semibold">{CLASSES[ins.classe].label}</span>
-          {ins.classe_motivo ? <span className="text-fg-muted"> · {ins.classe_motivo}</span> : null}
-          {ins.temperatura_anterior && ins.temperatura_anterior !== CLASSES[ins.classe].temperature ? <span className="text-fg-muted"> (a IA ajustou a temperatura; era {ins.temperatura_anterior})</span> : null}
-        </p>
-      ) : null}
       <p className="text-sm leading-relaxed">{lead.ai_summary}</p>
       <dl className="space-y-2">
         {list("Sinais de compra", ins.sinais)}

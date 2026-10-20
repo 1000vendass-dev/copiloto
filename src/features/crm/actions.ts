@@ -94,7 +94,10 @@ export async function setLeadTemperature(leadId: string, temperature: string | n
   if (!uuid.safeParse(leadId).success) return { ok: false, error: "Lead inválido." };
   const t = temperature && ["frio", "morno", "quente"].includes(temperature) ? temperature : null;
   const supabase = await createClient();
-  const { error } = await supabase.from("leads").update({ temperature: t }).eq("id", leadId);
+  // marca que o vendedor mexeu: a rotina da noite respeita o botão por 3 dias e não desfaz
+  const { data: cur } = await supabase.from("leads").select("ai_insights").eq("id", leadId).maybeSingle();
+  const ins = ((cur?.ai_insights ?? {}) as Record<string, unknown>);
+  const { error } = await supabase.from("leads").update({ temperature: t, ai_insights: { ...ins, temp_manual_at: new Date().toISOString() } }).eq("id", leadId);
   if (error) return { ok: false, error: dbError(error.message) };
   revalidateCrm(leadId);
   return { ok: true };

@@ -284,3 +284,18 @@ export function VisitButton({ leadId }: { leadId: string }) {
     </span>
   );
 }
+
+/** Aplica a etapa que a IA sugeriu. A IA só sugere; quem decide é o vendedor (este toque). */
+export function ApplyStageSuggestion({ leadId, stage, label }: { leadId: string; stage: string; label: string }) {
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <span className="inline-flex flex-col items-start">
+      <Button size="sm" variant="outline" disabled={pending}
+        onClick={() => start(async () => { const r = await changeLeadStage(leadId, stage); if (!r.ok) setError(r.error ?? "Erro"); })}>
+        {pending ? "Aplicando…" : `Mover para ${label}`}
+      </Button>
+      {error ? <span className="mt-1 text-xs text-red-600">{error}</span> : null}
+    </span>
+  );
+}

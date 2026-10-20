@@ -24,6 +24,10 @@ export type Lead = {
   closed_at: string | null;
   created_at: string;
   updated_at: string;
+  /** Resumo vivo e análise feitos pela rotina da noite da IA. */
+  ai_summary?: string | null;
+  ai_summary_at?: string | null;
+  ai_insights?: Record<string, unknown> | null;
 };
 
 export type Customer = {

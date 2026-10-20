@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { CardTitle } from "@/components/ui/card";
 import {
   ContactForm, ConvertToCustomerButton, CustomerLink, DeleteLeadButton, FollowUpForm, NoteForm, NoteList,
-  StageControl, TagEditor, TaskList, TemperatureControl, VisitButton,
+  ApplyStageSuggestion, StageControl, TagEditor, TaskList, TemperatureControl, VisitButton,
 } from "@/features/crm/components/lead-controls";
 import { LeadWorkspace } from "@/features/crm/components/lead-workspace";
 import { Timeline } from "@/features/crm/components/timeline";
@@ -61,6 +61,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
         <Link href={`/leads/${lead.id}/editar`}><Button variant="outline" size="sm"><Pencil className="h-4 w-4" />Editar</Button></Link>
         <div className="ml-auto"><DeleteLeadButton leadId={lead.id} /></div>
       </div>
+      {lead.ai_summary ? <AiSummary lead={lead} /> : null}
       <Section title="Cliente">
         {customer ? <CustomerLink id={customer.id} name={customer.name} /> : <><p className="text-sm text-fg-muted">Ainda não cadastrado como cliente.</p><ConvertToCustomerButton leadId={lead.id} /></>}
       </Section>
@@ -103,5 +104,40 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
         tags: <TagEditor target="lead" targetId={lead.id} tags={tags} allTags={allTags} />,
       }}
     />
+  );
+}
+
+type Insights = {
+  travas?: string[]; sinais?: string[]; objecoes?: string[]; dados_faltando?: string[];
+  sugestao_etapa?: { etapa: string; motivo: string } | null; temperatura_sugerida?: string | null; atualizado_em?: string;
+};
+
+/** Resumo vivo do cliente feito pela rotina da noite: dá para entender a negociação sem ler as mensagens antigas. */
+function AiSummary({ lead }: { lead: { id: string; stage: string; ai_summary?: string | null; ai_summary_at?: string | null; ai_insights?: Record<string, unknown> | null } }) {
+  const ins = (lead.ai_insights ?? {}) as Insights;
+  const sug = ins.sugestao_etapa && ins.sugestao_etapa.etapa !== lead.stage ? ins.sugestao_etapa : null;
+  const list = (title: string, items?: string[]) => items?.length ? (
+    <div><dt className="text-xs font-semibold text-fg-muted">{title}</dt><dd><ul className="mt-0.5 list-disc space-y-0.5 pl-4 text-sm">{items.map((t) => <li key={t}>{t}</li>)}</ul></dd></div>
+  ) : null;
+  return (
+    <section className="space-y-3 rounded-2xl border border-brand/30 bg-brand/5 p-3.5">
+      <div className="flex items-center justify-between gap-2">
+        <CardTitle>Resumo da IA</CardTitle>
+        {lead.ai_summary_at ? <span className="text-[11px] text-fg-muted">{formatDateTime(lead.ai_summary_at)}</span> : null}
+      </div>
+      <p className="text-sm leading-relaxed">{lead.ai_summary}</p>
+      <dl className="space-y-2">
+        {list("Sinais de compra", ins.sinais)}
+        {list("Travas", ins.travas)}
+        {list("Objeções", ins.objecoes)}
+        {list("O que falta saber", ins.dados_faltando)}
+      </dl>
+      {sug ? (
+        <div className="space-y-1.5 rounded-xl bg-surface p-2.5 text-sm">
+          <div><span className="font-semibold">Sugestão:</span> mover para {stageLabel(sug.etapa)}. <span className="text-fg-muted">{sug.motivo}</span></div>
+          <ApplyStageSuggestion leadId={lead.id} stage={sug.etapa} label={stageLabel(sug.etapa)} />
+        </div>
+      ) : null}
+    </section>
   );
 }

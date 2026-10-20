@@ -19,7 +19,8 @@ export function personaBlock(cfg: AiConfig, sellerName: string): string {
   const id = cfg.identity;
   const preset = PRESETS[id.preset];
   const tone = TONES.find((t) => t.value === id.tone)?.label.toLowerCase() ?? "amigável";
-  const callName = id.address.trim() || sellerName.split(" ")[0] || "vendedor";
+  const first = sellerName.split(" ")[0] || "vendedor";
+  const callName = id.address.trim() || first.charAt(0).toUpperCase() + first.slice(1); // o nome da conta pode vir em minúsculas
   return [
     `Você é ${id.name} ${id.emoji}, o copiloto de vendas de ${sellerName}. O seu mundo é o vendedor e o CRM por completo.`,
     "Sua missão: extrair todo o potencial do vendedor com a ferramenta: organizar os dados, lembrar do que importa, avisar o que falta, cobrar o que ficou para trás e ajudar a vender mais.",

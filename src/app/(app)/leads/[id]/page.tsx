@@ -55,13 +55,14 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
 
   const profile = (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center gap-2 border-b border-border pb-4">
-        <VisitButton leadId={lead.id} />
-        <Link href={`/propostas/nova?lead=${lead.id}`}><Button variant="outline" size="sm"><FileText className="h-4 w-4" />Proposta</Button></Link>
-        <Link href={`/leads/${lead.id}/editar`}><Button variant="outline" size="sm"><Pencil className="h-4 w-4" />Editar</Button></Link>
-        <div className="ml-auto"><DeleteLeadButton leadId={lead.id} /></div>
+      <div className="space-y-2 border-b border-border pb-4">
+        <div className="flex justify-end"><DeleteLeadButton leadId={lead.id} /></div>
+        <div className="grid grid-cols-3 gap-2">
+          <VisitButton leadId={lead.id} />
+          <Link href={`/propostas/nova?lead=${lead.id}`} className="block"><Button variant="outline" size="sm" className="h-14 w-full flex-col gap-1 rounded-2xl px-1 text-xs"><FileText className="h-5 w-5 shrink-0" />Proposta</Button></Link>
+          <Link href={`/leads/${lead.id}/editar`} className="block"><Button variant="outline" size="sm" className="h-14 w-full flex-col gap-1 rounded-2xl px-1 text-xs"><Pencil className="h-5 w-5 shrink-0" />Editar</Button></Link>
+        </div>
       </div>
-      {lead.ai_summary ? <AiSummary lead={lead} /> : null}
       <Section title="Cliente">
         {customer ? <CustomerLink id={customer.id} name={customer.name} /> : <><p className="text-sm text-fg-muted">Ainda não cadastrado como cliente.</p><ConvertToCustomerButton leadId={lead.id} /></>}
       </Section>
@@ -85,6 +86,7 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
           </Link>
         ) : <p className="text-sm text-fg-muted">Nenhum vinculado. Use “Editar” para escolher do estoque.</p>}
       </Section>
+      {lead.ai_summary ? <AiSummary lead={lead} /> : null}
       <Section title="Timeline"><Timeline items={activities} /></Section>
     </div>
   );

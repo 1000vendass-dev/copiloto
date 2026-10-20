@@ -275,10 +275,10 @@ export function VisitButton({ leadId }: { leadId: string }) {
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   return (
-    <span className="inline-flex flex-col items-start">
-      <Button size="sm" variant={done ? "secondary" : "primary"} disabled={pending || done}
+    <span className="flex flex-col items-stretch">
+      <Button size="sm" variant={done ? "secondary" : "primary"} disabled={pending || done} className="h-14 w-full flex-col gap-1 rounded-2xl px-1 text-xs"
         onClick={() => start(async () => { const r = await registerVisit(leadId); if (r.ok) setDone(true); else setError(r.error ?? "Erro"); })}>
-        <MapPinCheck className="h-4 w-4" />{done ? "Visita registrada" : pending ? "Registrando…" : "Veio na loja"}
+        <MapPinCheck className="h-5 w-5 shrink-0" /><span className="truncate">{done ? "Registrada" : pending ? "…" : "Veio na loja"}</span>
       </Button>
       {error ? <span className="mt-1 text-xs text-red-600">{error}</span> : null}
     </span>

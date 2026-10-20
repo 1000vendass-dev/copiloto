@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHeader } from "@/components/layout/page-header";
-import { Alert, Card, CardTitle, EmptyState } from "@/components/ui/card";
+import { Alert, Card, CardTitle } from "@/components/ui/card";
+import { ChartCard } from "@/features/dashboard/chart-card";
 import { OPEN_STAGES, STAGES } from "@/features/crm/constants";
 import { bodyLabel } from "@/features/inventory/constants";
 import { getSession } from "@/lib/auth";
@@ -17,26 +18,6 @@ type Metrics = {
   estoque: { disponiveis: number; reservados: number; vendidos_mes: number; valor_disponivel: number; idade_media_dias: number; parados_60d: number; sem_foto: number };
   carrocerias: KN[]; faixas_preco: KN[]; lojas: KN[];
 };
-
-/** Barras horizontais de uma série (magnitude): um tom só, valor escrito ao lado, título nativo no hover. */
-function Bars({ items, href }: { items: { label: string; n: number; key?: string }[]; href?: (key: string) => string }) {
-  const max = Math.max(1, ...items.map((i) => i.n));
-  if (!items.some((i) => i.n > 0)) return <EmptyState>Nenhum registro encontrado.</EmptyState>;
-  return (
-    <ul className="space-y-2">
-      {items.map((i) => {
-        const row = (
-          <div className="grid grid-cols-[7.5rem_1fr_2.5rem] items-center gap-2 text-sm" title={`${i.label}: ${i.n}`}>
-            <span className="truncate text-fg-muted">{i.label}</span>
-            <span className="h-2.5 rounded-full bg-muted"><span className="block h-2.5 rounded-full bg-brand" style={{ width: `${(i.n / max) * 100}%`, minWidth: i.n ? 4 : 0 }} /></span>
-            <span className="text-right tabular-nums">{i.n}</span>
-          </div>
-        );
-        return <li key={i.label}>{href && i.key ? <Link href={href(i.key)} className="block rounded-xl px-1 hover:bg-muted">{row}</Link> : row}</li>;
-      })}
-    </ul>
-  );
-}
 
 function Tile({ label, value, hint, href }: { label: string; value: string; hint?: string; href?: string }) {
   const body = (
@@ -77,17 +58,14 @@ export default async function PainelPage() {
         <Tile label="Sem foto" value={String(m.estoque.sem_foto)} hint="veículos disponíveis" />
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card><CardTitle className="mb-3">Funil (leads por etapa)</CardTitle>
-          <Bars items={STAGES.map((s) => ({ label: s.label, n: m.funil[s.value] ?? 0, key: s.value }))} href={(k) => `/leads?stage=${k}`} />
-        </Card>
-        <Card><CardTitle className="mb-3">Origem dos leads</CardTitle><Bars items={m.origens.map((o) => ({ label: o.k, n: o.n }))} /></Card>
-        <Card><CardTitle className="mb-3">Estoque por carroceria</CardTitle>
-          <Bars items={m.carrocerias.map((c) => ({ label: bodyLabel(c.k), n: c.n, key: c.k }))} href={(k) => `/estoque?body=${k}`} />
-        </Card>
-        <Card><CardTitle className="mb-3">Estoque por faixa de preço</CardTitle><Bars items={m.faixas_preco.map((f) => ({ label: f.k, n: f.n }))} /></Card>
-        <Card><CardTitle className="mb-3">Estoque por loja</CardTitle>
-          <Bars items={m.lojas.map((l) => ({ label: l.k, n: l.n, key: l.k }))} href={(k) => `/estoque?store=${encodeURIComponent(k)}`} />
-        </Card>
+        <ChartCard id="funil" title="Funil (leads por etapa)"
+          items={STAGES.map((s) => ({ label: s.label, n: m.funil[s.value] ?? 0, href: `/leads?view=lista&stage=${s.value}` }))} />
+        <ChartCard id="origens" title="Origem dos leads" items={m.origens.map((o) => ({ label: o.k, n: o.n }))} />
+        <ChartCard id="carrocerias" title="Estoque por carroceria"
+          items={m.carrocerias.map((c) => ({ label: bodyLabel(c.k), n: c.n, href: `/estoque?body=${c.k}` }))} />
+        <ChartCard id="faixas" title="Estoque por faixa de preço" items={m.faixas_preco.map((f) => ({ label: f.k, n: f.n }))} />
+        <ChartCard id="lojas" title="Estoque por loja"
+          items={m.lojas.map((l) => ({ label: l.k, n: l.n, href: `/estoque?store=${encodeURIComponent(l.k)}` }))} />
         <Card><CardTitle className="mb-3">Atividade</CardTitle>
           <p className="text-sm"><strong className="text-2xl tabular-nums">{m.contatos_7d}</strong> contatos registrados nos últimos 7 dias.</p>
         </Card>

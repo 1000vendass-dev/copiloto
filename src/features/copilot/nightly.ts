@@ -6,7 +6,9 @@ import { STAGE_VALUES, stageLabel } from "@/features/crm/constants";
 import { addDays, labelDay, todaySP } from "@/lib/dates";
 import { pushToUser } from "@/lib/push";
 import { fillLeadName } from "@/lib/whatsapp/ingest";
+import { CLASSES, classify, type Classe, type Intencao } from "./classify";
 import type { AiConfig } from "./config";
+import { loadEngagement } from "./engagement";
 import { callJson, emptyUsage, type Usage } from "./llm";
 import { buildSystem } from "./persona";
 import { storeFacts } from "./profile";
@@ -25,6 +27,8 @@ export type NightlyStats = {
   leadsDue: number; processed: number; skipped: number; errors: number;
   tasksCreated: number; tasksUpdated: number; memoriesAdded: number; memoriesChanged: number; namesFilled: number;
   tokensIn: number; tokensOut: number; calls: number; seconds: number; partial: boolean; reportSent: boolean;
+  /** Classificação de TODOS os leads abertos com conversa: quantos em cada classe, quantas temperaturas mudaram, cadastro preenchido. */
+  classes: Record<Classe, number>; classChanges: number; tempChanges: number; cadastroFilled: number;
 };
 
 /** Teto por rodada (cabe na assinatura). NIGHTLY_MAX_LEADS permite limitar para testes. */
@@ -46,7 +50,20 @@ const leadAnalysis = z.object({
     em_dias: z.number().int().min(1).max(60), prioridade: z.enum(["baixa", "media", "alta"]),
   }).nullable(),
   sugestao_etapa: z.object({ etapa: z.enum(STAGE_VALUES), motivo: z.string().max(180) }).nullable(),
-  temperatura_sugerida: z.enum(["frio", "morno", "quente"]).nullable(),
+  /** Intenção de compra lida na conversa (a classe final sai do código, com o engajamento medido). */
+  intencao: z.enum(["forte", "media", "fraca", "nenhuma"]),
+  motivo_classificacao: z.string().min(1).max(220),
+  /** Só se o lead não serve por um motivo objetivo (orçamento abaixo do estoque, sem condição nenhuma). Senão null. */
+  ruido_motivo: z.string().max(160).nullable(),
+  /** Só o que o CLIENTE disse na conversa. null = ele não disse. */
+  cadastro: z.object({
+    interesse: z.string().max(160).nullable(),
+    orcamento_max: z.number().min(0).max(5_000_000).nullable(),
+    pagamento: z.string().max(120).nullable(),
+    troca: z.string().max(160).nullable(),
+    prazo: z.string().max(80).nullable(),
+    origem: z.string().max(60).nullable(),
+  }),
 });
 type LeadAnalysis = z.infer<typeof leadAnalysis>;
 
@@ -102,7 +119,16 @@ function leadPrompt(lead: LeadRow, sellerName: string, summary: string | null, f
       "- travas, sinais, objeções: curtos e concretos.",
       "- dados_faltando: o que falta no cadastro para fechar (orçamento, pagamento, troca, prazo, telefone...).",
       "- proxima_acao: UM próximo passo concreto para o vendedor, ou null se não há o que fazer. em_dias conta a partir de hoje (mínimo 1).",
-      "- sugestao_etapa e temperatura_sugerida: só se a conversa justificar; null se a atual está certa.",
+      "- sugestao_etapa: só se a conversa justificar; null se a atual está certa. A etapa e a temperatura do cadastro são palpites antigos: julgue pelo que o cliente FEZ e DISSE.",
+      "- intencao (leia a conversa com espírito crítico):",
+      "    forte = quer comprar E tem condição viável (orçamento compatível com o estoque, meio de pagamento ou troca definidos) E deu passo concreto (pediu preço, foto, localização, marcou ou perguntou de visita).",
+      "    media = tem interesse e deu alguma informação concreta, mas há obstáculo real (restrição de crédito, sem entrada, parcela muito abaixo do que o mercado oferece, só comparando preço) ou ainda não deu passo concreto.",
+      "    fraca = curiosidade, respostas curtas ('ok', 'boa tarde'), só perguntou de um anúncio, sem dado concreto.",
+      "    nenhuma = disse que não quer, já comprou em outro lugar ou adiou para depois de muito tempo.",
+      "- motivo_classificacao: uma frase com a EVIDÊNCIA (o que ele disse ou fez) que sustenta a intenção. Não use adjetivo sem evidência.",
+      "- ruido_motivo: preencha SÓ se há motivo objetivo de o lead não servir (ex.: orçamento muito abaixo do menor carro do estoque, não quer financiar e não tem como pagar à vista). Senão null.",
+      "- cadastro: copie SÓ o que o CLIENTE disse na conversa (interesse, orçamento em reais, forma de pagamento, carro de troca, prazo, onde viu o carro). Se ele não disse, null. Nunca estime, nunca deduza do que o vendedor falou, nunca arredonde por conta própria.",
+      "Seja crítica e realista: se o cliente só deu respostas curtas, diga isso; se o vendedor mandou áudio sem pergunta de fechamento ou ficou sem retorno, registre em travas. Nunca invente dado nem torça a conversa para parecer promissora.",
     ].join("\n"),
   ].join("\n\n");
 }
@@ -166,17 +192,45 @@ async function applyAnalysis(ctx: NightlyCtx, lead: LeadRow, a: LeadAnalysis, fa
     team_id: teamId, lead_id: lead.id, day, summary: a.resumo_dia, blockers: a.travas, signals: a.sinais, next_action: a.proxima_acao?.titulo ?? null,
   }, { onConflict: "lead_id,day" });
 
+  // cadastro: preenche o que está VAZIO com o que o cliente disse; o que já tem valor diferente não é sobrescrito
+  // (o vendedor pode ter razão): vira divergência, mostrada no Resumo da IA para ele decidir.
+  const fill: Record<string, unknown> = {};
+  const filled: string[] = [];
+  const diverg: { campo: string; cadastro: string; conversa: string }[] = [];
+  const field = (campo: string, col: string, novo: string | number | null) => {
+    if (novo === null || novo === "") return;
+    const atual = lead[col];
+    if (atual === null || atual === undefined || atual === "") { fill[col] = novo; filled.push(`${campo}: ${novo}`); return; }
+    const same = typeof novo === "number"
+      ? Math.abs(Number(atual) - novo) <= Math.max(1000, Number(atual) * 0.05)
+      : (() => { const x = String(atual).trim().toLowerCase(); const y = String(novo).trim().toLowerCase(); return x.includes(y) || y.includes(x); })();
+    if (!same) diverg.push({ campo, cadastro: String(atual), conversa: String(novo) });
+  };
+  const c = a.cadastro;
+  field("Interesse", "interest", c.interesse);
+  field("Orçamento", "budget_max", c.orcamento_max);
+  field("Pagamento", "payment_method", c.pagamento);
+  field("Troca", "trade_in", c.troca);
+  field("Prazo", "purchase_timeframe", c.prazo);
+  field("Origem", "source", c.origem);
+  if (Object.keys(fill).length) {
+    const { error } = await admin.from("leads").update(fill).eq("id", lead.id);
+    if (!error) stats.cadastroFilled += filled.length;
+  }
+
   await admin.from("leads").update({
     ai_summary: a.resumo_vivo, ai_summary_at: nowIso,
     ai_insights: {
       travas: a.travas, sinais: a.sinais, objecoes: a.objecoes, dados_faltando: a.dados_faltando,
-      sugestao_etapa: a.sugestao_etapa, temperatura_sugerida: a.temperatura_sugerida, atualizado_em: nowIso,
+      sugestao_etapa: a.sugestao_etapa, intencao: a.intencao, motivo_classificacao: a.motivo_classificacao,
+      ruido_motivo: a.ruido_motivo, divergencias: diverg, atualizado_em: nowIso,
     },
   }).eq("id", lead.id);
 
   // aparece na linha do tempo do card
   await admin.from("activities").insert({
-    team_id: teamId, owner_id: userId, lead_id: lead.id, type: "ia", title: "Análise da IA", description: a.resumo_dia, occurred_at: nowIso,
+    team_id: teamId, owner_id: userId, lead_id: lead.id, type: "ia", title: "Análise da IA",
+    description: filled.length ? `${a.resumo_dia}\nCadastro preenchido pela IA: ${filled.join("; ")}` : a.resumo_dia, occurred_at: nowIso,
   });
   return nextTitle;
 }
@@ -193,24 +247,96 @@ async function dueLeads(admin: Admin, teamId: string): Promise<LeadRow[]> {
   return due.filter((l) => real.has(l.id)); // só quem tem conversa com cliente de verdade (loja, parceiro e spam ficam de fora)
 }
 
-function reportPrompt(done: Done[], stats: NightlyStats, quality: Quality): string {
+type Moved = { name: string; classe: Classe; motivo: string; tempAntes: string | null; tempDepois: string; mudouClasse: boolean; mudouTemp: boolean };
+type Reclass = { moves: Moved[]; byClass: Record<Classe, string[]> };
+
+/**
+ * Classifica TODOS os leads abertos com conversa de cliente (não só os que tiveram novidade): a regra mede o
+ * engajamento real e por isso um lead "quente" que parou de responder cai para Reativar, e quem nunca respondeu
+ * vira Ruído. Atualiza o card (ai_insights.classe) e a temperatura do cadastro, e deixa registro na timeline
+ * quando algo muda, com a temperatura anterior guardada para desfazer.
+ */
+async function reclassifyAll(ctx: NightlyCtx, stats: NightlyStats): Promise<Reclass> {
+  const { admin, teamId, userId } = ctx;
+  const out: Reclass = { moves: [], byClass: { comprador_real: [], potencial: [], reativar: [], ruido: [] } };
+  const { data } = await admin.from("leads").select("id,name,stage,temperature,ai_insights")
+    .eq("team_id", teamId).not("stage", "in", "(perdido,venda)").limit(500);
+  const leads = (data ?? []) as { id: string; name: string; stage: string; temperature: string | null; ai_insights: Record<string, unknown> | null }[];
+  if (!leads.length) return out;
+
+  const real = new Set<string>();
+  for (let i = 0; i < leads.length; i += 80) {
+    const { data: contacts } = await admin.from("whatsapp_contacts").select("lead_id").eq("categoria", "cliente").in("lead_id", leads.slice(i, i + 80).map((l) => l.id));
+    for (const c of contacts ?? []) real.add(c.lead_id as string);
+  }
+  const mine = leads.filter((l) => real.has(l.id));
+  const eng = await loadEngagement(admin, mine.map((l) => l.id));
+  const nowIso = new Date().toISOString();
+
+  for (const lead of mine) {
+    const ins = (lead.ai_insights ?? {}) as Record<string, unknown>;
+    const e = eng.get(lead.id)!;
+    const { classe, motivo } = classify({
+      stage: lead.stage, temperature: lead.temperature, intencao: (ins.intencao as Intencao | undefined) ?? null,
+      ruidoMotivo: (ins.ruido_motivo as string | null | undefined) ?? null, ...e,
+    });
+    stats.classes[classe]++;
+    out.byClass[classe].push(lead.name);
+    const novaTemp = CLASSES[classe].temperature;
+    const mudouClasse = ins.classe !== classe;
+    const mudouTemp = lead.temperature !== novaTemp;
+    if (!mudouClasse && !mudouTemp && ins.classe_motivo === motivo) continue;
+
+    const { error } = await admin.from("leads").update({
+      temperature: novaTemp,
+      ai_insights: { ...ins, classe, classe_motivo: motivo, classe_em: nowIso, ...(mudouTemp ? { temperatura_anterior: lead.temperature } : {}) },
+    }).eq("id", lead.id);
+    if (error) { stats.errors++; continue; }
+    if (mudouClasse) stats.classChanges++;
+    if (mudouTemp) stats.tempChanges++;
+    if (mudouClasse || mudouTemp) {
+      await admin.from("activities").insert({
+        team_id: teamId, owner_id: userId, lead_id: lead.id, type: "ia", title: `IA: ${CLASSES[classe].label}`, occurred_at: nowIso,
+        description: `${motivo}.${mudouTemp ? ` Temperatura ${lead.temperature ?? "sem"} → ${novaTemp}.` : ""}`,
+      });
+      out.moves.push({ name: lead.name, classe, motivo, tempAntes: lead.temperature, tempDepois: novaTemp, mudouClasse, mudouTemp });
+    }
+  }
+  return out;
+}
+
+function reportPrompt(done: Done[], stats: NightlyStats, quality: Quality, rc: Reclass): string {
   const leads = done.length
     ? done.slice(0, 25).map((d) => `- ${d.name} (${stageLabel(d.stage)}): ${d.resumo_dia} → próximo passo: ${d.proxima ?? "nenhum"}${d.travas.length ? ` | trava: ${d.travas[0]}` : ""}`).join("\n")
     : "nenhum cliente com novidade hoje";
+  const list = (c: Classe) => (rc.byClass[c].length ? rc.byClass[c].slice(0, 12).join(", ") : "ninguém");
+  const classes = [
+    `QUENTES = COMPRADORES REAIS (${rc.byClass.comprador_real.length}): ${list("comprador_real")}`,
+    `MORNOS = POTENCIAIS (${rc.byClass.potencial.length}): ${list("potencial")}`,
+    `MORNOS PARA REATIVAR (${rc.byClass.reativar.length}): ${list("reativar")}`,
+    `FRIOS = RUÍDO (${rc.byClass.ruido.length}): ${list("ruido")}`,
+  ].join("\n");
+  const moves = rc.moves.length
+    ? rc.moves.slice(0, 15).map((m) => `- ${m.name}: ${CLASSES[m.classe].label}${m.mudouTemp ? ` (temperatura ${m.tempAntes ?? "sem"} → ${m.tempDepois})` : ""}: ${m.motivo}`).join("\n")
+    : "nenhuma mudança hoje";
   const missing = quality.items.length
     ? quality.items.map((i) => `- ${i.label}: ${i.count}${i.sample.length ? ` (${i.sample.join(", ")})` : ""}`).join("\n")
     : "nada faltando";
   return [
     `Hoje: ${labelDay(todaySP())}.`,
-    `NÚMEROS (calculados pelo sistema, são exatos): ${stats.processed} clientes analisados, ${stats.tasksCreated} tarefas criadas e ${stats.tasksUpdated} atualizadas para os próximos dias, ${stats.memoriesAdded} fatos novos guardados. Visitas registradas esta semana: ${quality.visitsThisWeek}.`,
-    `CLIENTES COM NOVIDADE:\n${leads}`,
+    `NÚMEROS (calculados pelo sistema, são exatos): ${stats.processed} clientes analisados hoje, ${stats.tasksCreated} tarefas criadas e ${stats.tasksUpdated} atualizadas para os próximos dias, ${stats.memoriesAdded} fatos novos guardados, ${stats.cadastroFilled} campos de cadastro preenchidos, ${stats.tempChanges} temperaturas ajustadas. Visitas registradas esta semana: ${quality.visitsThisWeek}.`,
+    `TEMPERATURA DOS LEADS (a classificação oficial; a regra do sistema a atualiza pelo comportamento real; quente = comprador real = respondeu nos últimos 3 dias com intenção forte):\n${classes}`,
+    `MUDANÇAS DE TEMPERATURA HOJE:\n${moves}`,
+    `CLIENTES COM NOVIDADE HOJE:\n${leads}`,
     `DADOS FALTANDO NO SISTEMA:\n${missing}`,
     [
-      "Escreva o relatório do dia para o vendedor, na SUA voz (personalidade acima), em no máximo uns 1400 caracteres:",
-      "1. Abra com uma frase sobre o dia (use os números; não invente nenhum).",
-      "2. **Destaques**: até 5 clientes que merecem atenção amanhã, cada um numa linha começando com '- ', com o nome em **negrito** e o que fazer.",
-      "3. **O que falta no sistema**: até 3 itens, os mais importantes, dizendo como resolver.",
-      "4. Feche com UM conselho de venda baseado no que apareceu nas conversas de hoje.",
+      "Escreva o relatório do dia para o vendedor, na SUA voz (personalidade acima), em no máximo uns 1700 caracteres. Seja crítica e realista: não enfeite o dia e não invente nada.",
+      "1. Abra com uma frase honesta sobre o dia, usando os números (diga também o que NÃO andou).",
+      "2. **Quentes (compradores reais)**: até 5, cada um numa linha começando com '- ', nome em **negrito** e o que fazer amanhã. Se não houver comprador real, diga isso claramente.",
+      "3. **Mornos para reativar**: até 3 leads que estavam quentes no cadastro mas pararam de responder, e uma forma de retomar. Seja direta: no cadastro eles pareciam promissores, na prática estão parados.",
+      "4. **Frios (ruído)**: só a quantidade e um nome ou dois, sem gastar tempo com eles.",
+      "5. **O que falta no sistema**: até 3 itens, os mais importantes, dizendo como resolver.",
+      "6. Feche com UMA crítica construtiva sobre o atendimento de hoje (o que o vendedor deixou de fazer, com evidência dos dados) e UM conselho concreto.",
       "Diga que as tarefas de amanhã já estão criadas. Use apenas ** para negrito e '- ' para listas (sem títulos com #).",
     ].join("\n"),
   ].join("\n\n");
@@ -223,6 +349,7 @@ export async function runNightly(ctx: NightlyCtx): Promise<NightlyStats> {
   const stats: NightlyStats = {
     leadsDue: 0, processed: 0, skipped: 0, errors: 0, tasksCreated: 0, tasksUpdated: 0, memoriesAdded: 0, memoriesChanged: 0, namesFilled: 0,
     tokensIn: 0, tokensOut: 0, calls: 0, seconds: 0, partial: false, reportSent: false,
+    classes: { comprador_real: 0, potencial: 0, reativar: 0, ruido: 0 }, classChanges: 0, tempChanges: 0, cadastroFilled: 0,
   };
 
   const facts = await storeFacts(admin, teamId);
@@ -266,13 +393,17 @@ export async function runNightly(ctx: NightlyCtx): Promise<NightlyStats> {
     }
   }
 
+  // classifica TODOS os leads pelo comportamento real e atualiza card e temperatura (sempre, mesmo sem conversa nova)
+  let rc: Reclass = { moves: [], byClass: { comprador_real: [], potencial: [], reativar: [], ruido: [] } };
+  try { rc = await reclassifyAll(ctx, stats); } catch (e) { console.error("[nightly] classificação", e instanceof Error ? e.message : e); stats.errors++; }
+
   // relatório do dia (modelo melhor, uma chamada só), com os dados faltando calculados em SQL
   const quality = await computeQuality(admin, teamId);
-  if (stats.processed > 0 || quality.items.some((i) => i.severity === "alta")) {
+  if (stats.processed > 0 || stats.classChanges > 0 || quality.items.some((i) => i.severity === "alta")) {
     try {
       const { data, usage: u } = await callJson({
         system: buildSystem(cfg, userName, facts, "Você está escrevendo o relatório do fim do dia para o vendedor."),
-        prompt: reportPrompt(done, stats, quality), schema: reportSchema, tier: "sonnet",
+        prompt: reportPrompt(done, stats, quality, rc), schema: reportSchema, tier: "sonnet",
       });
       usage.input += u.input; usage.output += u.output; usage.calls += u.calls;
       const top = done.filter((d) => d.proxima).slice(0, 5);

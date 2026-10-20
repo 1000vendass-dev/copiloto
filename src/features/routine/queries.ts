@@ -80,6 +80,11 @@ export async function getCallList(limit = 20): Promise<CallItem[]> {
     else if (next && next < Date.parse(end)) { score += 40; reasons.push("próxima ação é hoje"); }
     if (lead.temperature === "quente") { score += 25; reasons.push("lead quente"); }
     else if (lead.temperature === "morno") score += 10;
+    // classificação da rotina da noite (comportamento real): quem responde sobe, quem esfriou pede reativação, ruído desce
+    const classe = (lead.ai_insights as { classe?: string } | null | undefined)?.classe;
+    if (classe === "comprador_real") { score += 30; reasons.push("comprador real (respondendo)"); }
+    else if (classe === "reativar") { score += 15; reasons.push("reativar: esfriou"); }
+    else if (classe === "ruido") score -= 30;
     if (["proposta", "negociacao"].includes(lead.stage)) { score += 20; reasons.push("perto de fechar"); }
     if (lead.stage === "novo" && !last) {
       const age = (now - Date.parse(lead.created_at)) / 3600000;

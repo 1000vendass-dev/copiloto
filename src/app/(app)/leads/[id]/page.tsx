@@ -10,6 +10,7 @@ import {
 } from "@/features/crm/components/lead-controls";
 import { LeadWorkspace } from "@/features/crm/components/lead-workspace";
 import { Timeline } from "@/features/crm/components/timeline";
+import { CLASSES, type Classe } from "@/features/copilot/classify";
 import { stageLabel } from "@/features/crm/constants";
 import { getLead } from "@/features/crm/queries";
 import { statusLabel } from "@/features/inventory/constants";
@@ -111,7 +112,9 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
 
 type Insights = {
   travas?: string[]; sinais?: string[]; objecoes?: string[]; dados_faltando?: string[];
-  sugestao_etapa?: { etapa: string; motivo: string } | null; temperatura_sugerida?: string | null; atualizado_em?: string;
+  sugestao_etapa?: { etapa: string; motivo: string } | null; atualizado_em?: string;
+  classe?: Classe; classe_motivo?: string; temperatura_anterior?: string | null;
+  divergencias?: { campo: string; cadastro: string; conversa: string }[];
 };
 
 /** Resumo vivo do cliente feito pela rotina da noite: dá para entender a negociação sem ler as mensagens antigas. */
@@ -127,12 +130,20 @@ function AiSummary({ lead }: { lead: { id: string; stage: string; ai_summary?: s
         <CardTitle>Resumo da IA</CardTitle>
         {lead.ai_summary_at ? <span className="text-[11px] text-fg-muted">{formatDateTime(lead.ai_summary_at)}</span> : null}
       </div>
+      {ins.classe ? (
+        <p className="text-sm">
+          <span className="font-semibold">{CLASSES[ins.classe].label}</span>
+          {ins.classe_motivo ? <span className="text-fg-muted"> · {ins.classe_motivo}</span> : null}
+          {ins.temperatura_anterior && ins.temperatura_anterior !== CLASSES[ins.classe].temperature ? <span className="text-fg-muted"> (a IA ajustou a temperatura; era {ins.temperatura_anterior})</span> : null}
+        </p>
+      ) : null}
       <p className="text-sm leading-relaxed">{lead.ai_summary}</p>
       <dl className="space-y-2">
         {list("Sinais de compra", ins.sinais)}
         {list("Travas", ins.travas)}
         {list("Objeções", ins.objecoes)}
         {list("O que falta saber", ins.dados_faltando)}
+        {ins.divergencias?.length ? list("Cadastro diferente do que o cliente disse", ins.divergencias.map((d) => `${d.campo}: cadastro "${d.cadastro}", conversa "${d.conversa}"`)) : null}
       </dl>
       {sug ? (
         <div className="space-y-1.5 rounded-xl bg-surface p-2.5 text-sm">

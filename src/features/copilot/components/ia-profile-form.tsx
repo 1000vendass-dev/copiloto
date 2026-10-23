@@ -109,6 +109,13 @@ export function IaProfileForm({ initial }: { initial: { autonomy: number; config
           </Field>
         </div>
         <p className="text-xs text-fg-muted">Fora dessa janela a IA não trabalha e não gasta nada. O relógio confere de hora em hora.</p>
+        <Field label="Follow-up: reativar o cliente depois de" htmlFor="fu-horas"
+          hint="Só no Nível 2. Conta a partir da sua última mensagem sem resposta. O Follow-up roda de hora em hora, das 7h às 21h, e para depois de 3 mensagens sem resposta.">
+          <Select id="fu-horas" value={cfg.routines.followup.semRespostaHoras}
+            onChange={(e) => setRoutines({ followup: { semRespostaHoras: Number(e.target.value) } })}>
+            {[2, 3, 4, 6, 8, 12, 24, 48, 72].map((h) => <option key={h} value={h}>{h < 24 ? `${h} horas sem resposta` : `${h / 24} dia${h === 24 ? "" : "s"} sem resposta`}</option>)}
+          </Select>
+        </Field>
         <label className="flex items-center gap-2 text-sm font-medium">
           <input type="checkbox" checked={cfg.routines.nightly.enabled} onChange={(e) => setRoutines({ nightly: { ...cfg.routines.nightly, enabled: e.target.checked } })} />
           Rotina da noite (resumos, memória, tarefas e relatório do dia)

@@ -14,14 +14,15 @@ import { buildSystem } from "./persona";
 import { storeFacts } from "./profile";
 
 /**
- * FOLLOW-UP (equipe do CSO na empresa de agentes): "ninguém fica sem retorno".
+ * FOLLOW-UP (equipe do CSO na empresa de agentes): REATIVA o cliente que parou de responder.
  * É o "Nível 2 · Rotinas + rascunhos" da aba IA: só roda para quem escolheu esse nível.
- * Roda de hora em hora, das 7h às 21h. Quem precisa de retorno é decidido por REGRA (código), não pela IA:
- *   1. cliente falou por último e está esperando resposta há 1h+;
- *   2. próxima ação do lead venceu e o vendedor não escreveu desde então;
- *   3. lead para reativar (rotina da noite), última mensagem do vendedor com 2+ dias e menos de 3 sem resposta.
- * Ficam de fora: ruído, lead sem conversa de cliente, lead com rascunho pendente e quem já ganhou rascunho do
- * Follow-up nas últimas 20h. A IA só escreve o rascunho (ou explica por que não vale mandar agora).
+ * Divisão do Comercial (decisão do dono): SDR = lead novo (etapa "novo"); a partir do atendimento o lead é do
+ * dono; o Follow-up só reativa. Roda de hora em hora, das 7h às 21h. Quem entra é decidido por REGRA:
+ *   - a última mensagem da conversa é do vendedor e o cliente não responde há X horas
+ *     (X na aba IA, padrão 6h: routines.followup.semRespostaHoras);
+ *   - menos de 3 mensagens seguidas sem resposta (depois disso para de insistir).
+ * Ficam de fora: etapa "novo" (é do SDR), ruído, lead sem conversa de cliente, lead com rascunho pendente e quem
+ * ganhou rascunho do Follow-up nas últimas X horas. A IA só escreve o rascunho ou explica por que pular.
  * NADA é enviado: o rascunho vai para o card e o resumo vem para o chat, com botão para cada conversa.
  */
 
@@ -48,11 +49,11 @@ const draftSchema = z.object({
 
 const fmt = (iso: string | null) => (iso ? new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—");
 
-/** Quem precisa de retorno agora (regra fixa, auditável). */
-async function quemPrecisa(admin: Admin, teamId: string, now: number): Promise<Due[]> {
+/** Quem precisa ser reativado agora (regra fixa, auditável). */
+async function quemPrecisa(admin: Admin, teamId: string, now: number, horas: number): Promise<Due[]> {
   const { data } = await admin.from("leads")
     .select("id,name,stage,temperature,interest,budget_max,payment_method,trade_in,next_action,next_action_at,ai_summary,ai_insights")
-    .eq("team_id", teamId).in("stage", OPEN_STAGES).limit(1000);
+    .eq("team_id", teamId).in("stage", OPEN_STAGES.filter((s) => s !== "novo")).limit(1000);
   const leads = (data ?? []) as LeadRow[];
   if (!leads.length) return [];
 
@@ -62,9 +63,9 @@ async function quemPrecisa(admin: Admin, teamId: string, now: number): Promise<D
   const base = leads.filter((l) => comConversa.has(l.id) && (l.ai_insights as { classe?: string } | null)?.classe !== "ruido");
   if (!base.length) return [];
 
-  // fora: rascunho pendente (de qualquer origem) ou rascunho do Follow-up nas últimas 20h
-  const { data: drafts } = await admin.from("whatsapp_drafts").select("lead_id,source,status,created_at").in("lead_id", base.map((l) => l.id))
-    .or(`status.eq.pendente,and(source.eq.follow_up,created_at.gt.${new Date(now - 20 * H).toISOString()})`);
+  // fora: rascunho pendente (de qualquer origem) ou rascunho do Follow-up dentro do intervalo
+  const { data: drafts } = await admin.from("whatsapp_drafts").select("lead_id").in("lead_id", base.map((l) => l.id))
+    .or(`status.eq.pendente,and(source.eq.follow_up,created_at.gt.${new Date(now - horas * H).toISOString()})`);
   const bloqueados = new Set((drafts ?? []).map((d) => d.lead_id as string));
 
   const eng = await loadEngagement(admin, base.map((l) => l.id));
@@ -74,19 +75,12 @@ async function quemPrecisa(admin: Admin, teamId: string, now: number): Promise<D
     const e = eng.get(lead.id)!;
     const dele = e.ultimaDele ? Date.parse(e.ultimaDele) : null;
     const minha = e.ultimaMinha ? Date.parse(e.ultimaMinha) : null;
-    const next = lead.next_action_at ? Date.parse(lead.next_action_at) : null;
-    const classe = (lead.ai_insights as { classe?: string } | null)?.classe;
-    let motivo: string | null = null;
-    if (dele && (!minha || dele > minha) && now - dele >= H) motivo = `cliente esperando resposta desde ${fmt(e.ultimaDele)}`;
-    // enviar mensagem não conclui a tarefa do lead: se o vendedor já escreveu depois do vencimento, o retorno foi feito
-    else if (next && next <= now && (!minha || minha < next)) motivo = `próxima ação venceu (${lead.next_action ?? "retorno"} · ${fmt(lead.next_action_at)})`;
-    // reativação tem limite: 3 mensagens seguidas sem resposta e o Follow-up para de insistir
-    else if (classe === "reativar" && e.semResposta < 3 && (!minha || now - minha >= 48 * H)) motivo = `reativar: sem resposta desde ${fmt(e.ultimaDele)}`;
-    if (motivo) out.push({ lead, motivo, eng: e });
+    if (!minha || (dele && dele > minha)) continue; // a última palavra é do cliente: não é reativação
+    if (now - minha < horas * H || e.semResposta >= 3) continue;
+    out.push({ lead, eng: e, motivo: `sem responder desde ${fmt(e.ultimaMinha)} (${e.semResposta} mensagem${e.semResposta === 1 ? "" : "s"} sua${e.semResposta === 1 ? "" : "s"} sem resposta)` });
   }
-  // quem está esperando resposta primeiro; depois os vencidos; depois reativação
-  const peso = (m: string) => (m.startsWith("cliente esperando") ? 0 : m.startsWith("próxima ação") ? 1 : 2);
-  return out.sort((a, b) => peso(a.motivo) - peso(b.motivo));
+  // quem parou de responder há menos tempo primeiro: é quem tem mais chance de voltar
+  return out.sort((a, b) => (b.eng.ultimaMinha ?? "").localeCompare(a.eng.ultimaMinha ?? ""));
 }
 
 function prompt(d: Due, vendedor: string, msgs: { direction: string; type: string; body: string | null; transcript: string | null; sent_at: string }[]): string {
@@ -106,7 +100,7 @@ function prompt(d: Due, vendedor: string, msgs: { direction: string; type: strin
     [
       `Escreva UMA mensagem de WhatsApp que ${vendedor} vai revisar e mandar para este cliente.`,
       "- Curta (até 3 frases), natural, no tom de quem vende carro em loja: sem formalidade, sem textão, sem emoji em excesso.",
-      "- Se o cliente perguntou algo, responda ou diga que vai verificar; se esfriou, retome com um motivo concreto (o carro de interesse, a troca, uma condição), nunca só 'e aí, tudo bem?'.",
+      "- O cliente parou de responder: retome com um motivo concreto tirado da conversa (o carro de interesse, a troca, uma dúvida que ficou aberta), nunca só 'e aí, tudo bem?'. Não cobre o cliente nem repita a mensagem anterior.",
       "- Termine com uma pergunta simples que faça o cliente responder ou marcar visita.",
       "- NUNCA invente preço, condição, desconto, disponibilidade de carro ou prazo de banco. Na dúvida, convide para conversar ou visitar.",
       "- acao = 'pular' (texto null) se não fizer sentido mandar agora: cliente pediu um prazo que ainda não chegou, já foi atendido, desistiu, pediu para não insistir, ou a conversa mostra que a próxima jogada é do cliente. Diga o motivo.",
@@ -123,7 +117,7 @@ async function tarefaDoDia(dia: string): Promise<string | null> {
   if (existente?.id) return String(existente.id);
   const criada = await chamaQuadro("criar", [], {
     titulo, responsavel: "follow_up", prioridade: "alta", prazo: `${dia}T21:59:00-03:00`,
-    descricao: "Ninguém fica sem retorno: rascunho para todo lead que precisar de follow-up (7h às 21h). Entrega: total de rascunhos no fim do dia.",
+    descricao: "Reativar quem parou de responder: rascunho para cada cliente sem resposta há X horas (7h às 21h). Entrega: total de rascunhos no fim do dia.",
   });
   const id = (criada.criada as { id?: string } | undefined)?.id;
   return id ? String(id) : null;
@@ -136,13 +130,13 @@ export async function runFollowup(opts: { admin: Admin; userId: string; teamId: 
   const stats: FollowupStats = { candidatos: 0, rascunhos: 0, pulados: 0, erros: 0, parcial: false, tokensIn: 0, tokensOut: 0, segundos: 0 };
   const primeiro = userName.split(" ")[0] || "o vendedor";
 
-  const due = await quemPrecisa(admin, teamId, Date.now());
+  const due = await quemPrecisa(admin, teamId, Date.now(), cfg.routines.followup.semRespostaHoras);
   stats.candidatos = due.length;
   const batch = due.slice(0, MAX_LEADS);
   if (due.length > MAX_LEADS) stats.parcial = true;
 
   const system = buildSystem(cfg, userName, await storeFacts(admin, teamId),
-    `Você é o FOLLOW-UP da equipe comercial (empresa de agentes do dono; seu chefe é o CSO). Sua missão: ninguém fica sem retorno. Escreva rascunhos de WhatsApp em nome de ${primeiro}; ele revisa e envia. Você nunca envia nada.`);
+    `Você é o FOLLOW-UP da equipe comercial (empresa de agentes do dono; seu chefe é o CSO). Sua missão: reativar o cliente que parou de responder. Escreva rascunhos de WhatsApp em nome de ${primeiro}; ele revisa e envia. Você nunca envia nada.`);
 
   const feitos: { id: string; name: string; motivo: string }[] = [];
   for (const d of batch) {

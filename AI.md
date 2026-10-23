@@ -78,13 +78,13 @@ O Copiloto é a ferramenta do departamento Comercial da empresa de agentes do do
 - **Chat = CSO (Diretor Comercial).** O bloco `EMPRESA_BLOCK` (`persona.ts`) entra só no chat. As ferramentas
   `quadro_consultar`/`quadro_agir` (`quadro.ts`) falam com a API do quadro usando a chave do cargo (`QUADRO_API_TOKEN`).
   Quadro da empresa ≠ agenda de clientes: lembrete de cliente continua em `registrar_atendimento` (regra I do prompt).
-- **Follow-up (`followup.ts`)** é o **Nível 2 · Rotinas + rascunhos** da aba IA. Só roda com esse nível e com
-  `QUADRO_API_TOKEN_FOLLOW_UP`, de hora em hora das 7h às 21h. Quem precisa de retorno sai de regra fixa:
-  cliente esperando resposta há 1h+; próxima ação vencida sem mensagem do vendedor depois do vencimento;
-  "reativar" com 48h+ desde a última mensagem do vendedor e menos de 3 sem resposta. Ficam de fora ruído, lead
-  sem conversa de cliente, lead com rascunho pendente e quem ganhou rascunho do Follow-up nas últimas 20h.
-  A IA (haiku) só escreve o rascunho (`source = follow_up`) ou pula com motivo. Resumo no chat com botão para cada
-  conversa. A tarefa "Follow-up do dia" no quadro é anotada a cada rodada e entregue às 21h.
+- **Follow-up (`followup.ts`)** é o **Nível 2 · Rotinas + rascunhos** da aba IA e só REATIVA (decisão do dono:
+  SDR = lead novo; do atendimento em diante o lead é do dono). Roda de hora em hora das 7h às 21h, com
+  `QUADRO_API_TOKEN_FOLLOW_UP`. Entra o lead fora da etapa "novo" cuja última mensagem é do vendedor e está sem
+  resposta há X horas (aba IA, `routines.followup.semRespostaHoras`, padrão 6h), com menos de 3 mensagens seguidas
+  sem resposta. Ficam de fora ruído, lead sem conversa de cliente, rascunho pendente e rascunho do Follow-up dentro
+  das X horas. A IA (haiku) só escreve o rascunho (`source = follow_up`) ou pula com motivo. Resumo no chat com botão
+  para cada conversa; a tarefa "Follow-up do dia" no quadro é anotada a cada rodada e entregue às 21h.
 
 ## Configuração
 

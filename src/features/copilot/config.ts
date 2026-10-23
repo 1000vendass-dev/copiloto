@@ -62,6 +62,8 @@ export const configSchema = z.object({
     /** A IA só trabalha dentro desta janela (o relógio chama de hora em hora). 24 = meia-noite. */
     window: z.object({ from: hour(0, 23, 6), to: hour(1, 24, 24) }).prefault({}),
     nightly: z.object({ enabled: z.boolean().default(true), hour: hour(0, 23, 21) }).prefault({}),
+    /** Follow-up (Nível 2): reativa o cliente depois de tantas horas sem responder à última mensagem do vendedor. */
+    followup: z.object({ semRespostaHoras: hour(1, 72, 6) }).prefault({}),
   }).prefault({}),
 });
 export type AiConfig = z.infer<typeof configSchema>;

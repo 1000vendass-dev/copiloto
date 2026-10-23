@@ -20,10 +20,10 @@ const TOOL_LABEL: Record<string, string> = {
   create_appointment: "Agendou", search_appointments: "Consultou agenda", create_activity: "Registrou contato", search_activities: "Leu timeline",
   create_note: "Salvou nota", search_notes: "Buscou notas", search_proposals: "Buscou propostas", create_proposal: "Criou proposta",
   update_proposal: "Alterou proposta", who_to_call_today: "Priorizou contatos", save_memory: "Guardou memória", relatorio: "Para amanhã",
-  quadro_consultar: "Consultou o quadro", quadro_agir: "Registrou no quadro", follow_up: "Rascunho pronto",
+  quadro_consultar: "Consultou o quadro", quadro_agir: "Registrou no quadro", follow_up: "Rascunho pronto", sdr: "Resposta pronta",
 };
 
-const KIND_LABEL: Record<string, string> = { relatorio: "🌙 Relatório do dia", briefing: "☀️ Briefing", alerta: "⚠️ Alerta", revisao: "📈 Revisão", follow_up: "🔁 Follow-up" };
+const KIND_LABEL: Record<string, string> = { relatorio: "🌙 Relatório do dia", briefing: "☀️ Briefing", alerta: "⚠️ Alerta", revisao: "📈 Revisão", follow_up: "🔁 Follow-up", sdr: "🆕 SDR · lead novo" };
 
 const SUGGESTIONS = [
   "Quem eu preciso chamar hoje?",

@@ -85,6 +85,14 @@ O Copiloto é a ferramenta do departamento Comercial da empresa de agentes do do
   sem resposta. Ficam de fora ruído, lead sem conversa de cliente, rascunho pendente e rascunho do Follow-up dentro
   das X horas. A IA (haiku) só escreve o rascunho (`source = follow_up`) ou pula com motivo. Resumo no chat com botão
   para cada conversa; a tarefa "Follow-up do dia" no quadro é anotada a cada rodada e entregue às 21h.
+- **SDR (`sdr.ts`)** também é Nível 2 (com `QUADRO_API_TOKEN_SDR`): lead novo, etapas "novo" e "primeiro_contato". A cada
+  15 min das 7h às 21h (mensagem fora do horário espera a janela abrir). Entra quem tem a ÚLTIMA mensagem do cliente
+  (2+ min), sem rascunho pendente e sem rascunho do SDR depois dela. A IA responde com o estoque real (sem preço),
+  faz UMA pergunta de qualificação e preenche só campos VAZIOS do cadastro (interesse, orçamento, pagamento, troca,
+  prazo, origem). Não muda etapa: do atendimento em diante é o dono. Rascunho `source = sdr`, linha na timeline,
+  resumo no chat com botão. Tarefa "SDR do dia" no quadro, entregue às 22h.
+- O relógio (`copiloto-cron`) chama `tick` a cada 15 min; as rotinas de hora em hora não duplicam (período em
+  `copilot_runs`).
 
 ## Configuração
 

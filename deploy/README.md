@@ -8,7 +8,7 @@ Três containers, todos na rede docker própria `copiloto-net` (sem ligação co
 | `/root/copiloto-app` | `copiloto-app` | este app (Next.js standalone) |
 | `/root/copiloto-claude` | `copiloto-claude` | Claude Code logado na assinatura + ponte HTTP (`server.mjs`) |
 | `/root/copiloto-whisper` | `copiloto-whisper` | Whisper (fala → texto) para a IA ler os áudios; sem porta publicada, `WHISPER_URL=http://copiloto-whisper:9000` |
-| `/root/copiloto-cron` | `copiloto-cron` | Relógio das rotinas da IA: de hora em hora (06h–00h) chama `POST /api/jobs/tick` no app com `JOBS_TOKEN`; sem porta |
+| `/root/copiloto-cron` | `copiloto-cron` | Relógio das rotinas da IA (fonte: `deploy/cron/cron.mjs`): a cada 15 min (06h–00h) chama `POST /api/jobs/tick` no app com `JOBS_TOKEN`; sem porta |
 
 Entrada pela internet: o Caddy do CRM tem um bloco `copiloto.1000vendas.com` que repassa para `copiloto-app:3000`
 e **bloqueia** `/api/whatsapp/webhook` (o WAHA chama o app por dentro da rede).

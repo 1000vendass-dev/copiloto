@@ -5,6 +5,7 @@ import { addDays, todaySP } from "@/lib/dates";
 import { effectiveHour, inWindow, parseConfig } from "./config";
 import { FOLLOWUP_HOURS, runFollowup } from "./followup";
 import { runNightly } from "./nightly";
+import { SDR_HOURS, entregaSdrDoDia, runSdr } from "./sdr";
 import type { AiProfile } from "./profile";
 
 type Admin = SupabaseClient;
@@ -61,13 +62,17 @@ export async function startNightly(admin: Admin, p: AiProfile, trigger: "agenda"
 export const hourSP = (now = new Date()) =>
   Number(new Intl.DateTimeFormat("en-GB", { hour: "2-digit", hour12: false, timeZone: "America/Sao_Paulo" }).format(now)) % 24;
 
+const minuteSP = (now = new Date()) => Number(new Intl.DateTimeFormat("en-GB", { minute: "2-digit", timeZone: "America/Sao_Paulo" }).format(now));
+
 /**
- * O relógio (container copiloto-cron) chama isto de hora em hora. Aqui se decide o que está na hora,
+ * O relógio (container copiloto-cron) chama isto a cada 15 minutos. Aqui se decide o que está na hora,
  * por usuário: respeita o nível de autonomia, a janela de trabalho (padrão 06h–00h) e o horário de cada rotina.
+ * As rotinas de hora em hora (noite, Follow-up) não duplicam: cada uma reserva o seu período em copilot_runs.
  * Fora da janela a IA não trabalha (e não gasta nada).
  */
 export async function tick(admin: Admin, now = new Date()) {
   const hour = hourSP(now);
+  const quarto = Math.floor(minuteSP(now) / 15) * 15;
   const { data: rows } = await admin.from("ai_profiles").select("user_id,team_id,autonomy,config").gte("autonomy", 1);
   const started: string[] = [];
   const skipped: string[] = [];
@@ -86,28 +91,43 @@ export async function tick(admin: Admin, now = new Date()) {
     // no quadro da empresa, de hora em hora das 7h às 21h.
     if (p.autonomy === 2 && process.env.QUADRO_API_TOKEN_FOLLOW_UP && hour >= FOLLOWUP_HOURS.from && hour <= FOLLOWUP_HOURS.to) {
       const period = `${todaySP(now)}T${String(hour).padStart(2, "0")}`;
-      const res = await startFollowup(admin, p, period, hour);
+      const res = await startEquipe(admin, p, "follow_up", period, async (userName) =>
+        runFollowup({ admin, userId: p.userId, teamId: p.teamId, userName, cfg: p.config, hora: hour }));
       if (res.ok) started.push(`${p.userId.slice(0, 8)}: follow-up ${period}`);
       else skipped.push(`${p.userId.slice(0, 8)}: follow-up (${res.reason})`);
+    }
+    // SDR (equipe do CSO, lead novo): também Nível 2, a cada 15 min das 7h às 21h. Mensagem de fora do
+    // horário fica para a primeira checagem das 7h. Às 22h entrega a tarefa do dia no quadro.
+    if (p.autonomy === 2 && process.env.QUADRO_API_TOKEN_SDR) {
+      if (hour >= SDR_HOURS.from && hour <= SDR_HOURS.to) {
+        const period = `${todaySP(now)}T${String(hour).padStart(2, "0")}:${String(quarto).padStart(2, "0")}`;
+        const res = await startEquipe(admin, p, "sdr", period, async (userName) =>
+          runSdr({ admin, userId: p.userId, teamId: p.teamId, userName, cfg: p.config, hora: hour, minuto: quarto }));
+        if (res.ok) started.push(`${p.userId.slice(0, 8)}: sdr ${period}`);
+        else skipped.push(`${p.userId.slice(0, 8)}: sdr (${res.reason})`);
+      } else if (hour === SDR_HOURS.to + 1) {
+        const res = await startEquipe(admin, p, "sdr_entrega", todaySP(now), async () => { await entregaSdrDoDia(); return {}; });
+        if (res.ok) started.push(`${p.userId.slice(0, 8)}: sdr entrega do dia`);
+      }
     }
   }
   return { hour, started, skipped };
 }
 
-/** Uma rodada por usuário e hora (a chave period impede duplicar). Roda em segundo plano, como a da noite. */
-async function startFollowup(admin: Admin, p: AiProfile, period: string, hora: number): Promise<Start> {
+/** Rotina da equipe comercial: uma rodada por período (a chave period impede duplicar), em segundo plano. */
+async function startEquipe(admin: Admin, p: AiProfile, job: string, period: string, run: (userName: string) => Promise<object>): Promise<Start> {
   const ins = await admin.from("copilot_runs")
-    .insert({ team_id: p.teamId, user_id: p.userId, job: "follow_up", period, trigger: "agenda", status: "rodando", stats: {} })
+    .insert({ team_id: p.teamId, user_id: p.userId, job, period, trigger: "agenda", status: "rodando", stats: {} })
     .select("id").single();
-  if (!ins.data) return { ok: false, reason: ins.error?.code === "23505" ? "já rodou nesta hora" : ins.error?.message ?? "erro ao reservar" };
+  if (!ins.data) return { ok: false, reason: ins.error?.code === "23505" ? "já rodou neste período" : ins.error?.message ?? "erro ao reservar" };
   const id = ins.data.id as string;
   void (async () => {
     try {
-      const stats = await runFollowup({ admin, userId: p.userId, teamId: p.teamId, userName: await userNameOf(admin, p.userId), cfg: p.config, hora });
+      const stats = (await run(await userNameOf(admin, p.userId))) as { erros?: number; rascunhos?: number; pulados?: number; parcial?: boolean };
       const status = stats.erros && !stats.rascunhos && !stats.pulados ? "erro" : stats.parcial || stats.erros ? "parcial" : "ok";
       await admin.from("copilot_runs").update({ status, finished_at: new Date().toISOString(), stats }).eq("id", id);
     } catch (e) {
-      console.error("[follow_up]", e instanceof Error ? e.message : e);
+      console.error(`[${job}]`, e instanceof Error ? e.message : e);
       await admin.from("copilot_runs").update({ status: "erro", finished_at: new Date().toISOString(), error: (e instanceof Error ? e.message : "erro").slice(0, 300) }).eq("id", id);
     }
   })();

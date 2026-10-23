@@ -70,6 +70,22 @@ Toda chamada de ferramenta grava em `ai_action_logs`: usuário, comando, ferrame
 `get_lead` reconstrói o contexto lendo as três. O histórico do chat (`ai_messages`) é só conveniência para retomar
 a conversa em outro aparelho.
 
+## Empresa de agentes: o chat é o CSO
+
+O Copiloto é a ferramenta do departamento Comercial da empresa de agentes do dono (quadro de tarefas no
+`empresa-db`, fora do Supabase). Com `QUADRO_API_URL` configurada:
+
+- **Chat = CSO (Diretor Comercial).** O bloco `EMPRESA_BLOCK` (`persona.ts`) entra só no chat. As ferramentas
+  `quadro_consultar`/`quadro_agir` (`quadro.ts`) falam com a API do quadro usando a chave do cargo (`QUADRO_API_TOKEN`).
+  Quadro da empresa ≠ agenda de clientes: lembrete de cliente continua em `registrar_atendimento` (regra I do prompt).
+- **Follow-up (`followup.ts`)** é o **Nível 2 · Rotinas + rascunhos** da aba IA. Só roda com esse nível e com
+  `QUADRO_API_TOKEN_FOLLOW_UP`, de hora em hora das 7h às 21h. Quem precisa de retorno sai de regra fixa:
+  cliente esperando resposta há 1h+; próxima ação vencida sem mensagem do vendedor depois do vencimento;
+  "reativar" com 48h+ desde a última mensagem do vendedor e menos de 3 sem resposta. Ficam de fora ruído, lead
+  sem conversa de cliente, lead com rascunho pendente e quem ganhou rascunho do Follow-up nas últimas 20h.
+  A IA (haiku) só escreve o rascunho (`source = follow_up`) ou pula com motivo. Resumo no chat com botão para cada
+  conversa. A tarefa "Follow-up do dia" no quadro é anotada a cada rodada e entregue às 21h.
+
 ## Configuração
 
 `ANTHROPIC_API_KEY` (obrigatória) e `COPILOTO_MODEL` (opcional, padrão `claude-sonnet-5`). Sem chave, a tela mostra

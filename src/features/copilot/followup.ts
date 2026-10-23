@@ -15,10 +15,11 @@ import { storeFacts } from "./profile";
 
 /**
  * FOLLOW-UP (equipe do CSO na empresa de agentes): "ninguém fica sem retorno".
+ * É o "Nível 2 · Rotinas + rascunhos" da aba IA: só roda para quem escolheu esse nível.
  * Roda de hora em hora, das 7h às 21h. Quem precisa de retorno é decidido por REGRA (código), não pela IA:
  *   1. cliente falou por último e está esperando resposta há 1h+;
- *   2. próxima ação do lead venceu;
- *   3. lead para reativar (rotina da noite) e a última mensagem do vendedor tem 2+ dias.
+ *   2. próxima ação do lead venceu e o vendedor não escreveu desde então;
+ *   3. lead para reativar (rotina da noite), última mensagem do vendedor com 2+ dias e menos de 3 sem resposta.
  * Ficam de fora: ruído, lead sem conversa de cliente, lead com rascunho pendente e quem já ganhou rascunho do
  * Follow-up nas últimas 20h. A IA só escreve o rascunho (ou explica por que não vale mandar agora).
  * NADA é enviado: o rascunho vai para o card e o resumo vem para o chat, com botão para cada conversa.
@@ -77,8 +78,10 @@ async function quemPrecisa(admin: Admin, teamId: string, now: number): Promise<D
     const classe = (lead.ai_insights as { classe?: string } | null)?.classe;
     let motivo: string | null = null;
     if (dele && (!minha || dele > minha) && now - dele >= H) motivo = `cliente esperando resposta desde ${fmt(e.ultimaDele)}`;
-    else if (next && next <= now) motivo = `próxima ação venceu (${lead.next_action ?? "retorno"} · ${fmt(lead.next_action_at)})`;
-    else if (classe === "reativar" && (!minha || now - minha >= 48 * H)) motivo = `reativar: sem resposta desde ${fmt(e.ultimaDele)}`;
+    // enviar mensagem não conclui a tarefa do lead: se o vendedor já escreveu depois do vencimento, o retorno foi feito
+    else if (next && next <= now && (!minha || minha < next)) motivo = `próxima ação venceu (${lead.next_action ?? "retorno"} · ${fmt(lead.next_action_at)})`;
+    // reativação tem limite: 3 mensagens seguidas sem resposta e o Follow-up para de insistir
+    else if (classe === "reativar" && e.semResposta < 3 && (!minha || now - minha >= 48 * H)) motivo = `reativar: sem resposta desde ${fmt(e.ultimaDele)}`;
     if (motivo) out.push({ lead, motivo, eng: e });
   }
   // quem está esperando resposta primeiro; depois os vencidos; depois reativação

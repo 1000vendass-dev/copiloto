@@ -82,8 +82,9 @@ export async function tick(admin: Admin, now = new Date()) {
       if (res.ok) started.push(`${p.userId.slice(0, 8)}: nightly ${period}`);
       else skipped.push(`${p.userId.slice(0, 8)}: nightly (${res.reason})`);
     }
-    // Follow-up (equipe do CSO): só com o cargo ligado no quadro da empresa, de hora em hora das 7h às 21h
-    if (process.env.QUADRO_API_TOKEN_FOLLOW_UP && hour >= FOLLOWUP_HOURS.from && hour <= FOLLOWUP_HOURS.to) {
+    // Follow-up (equipe do CSO) = "Nível 2 · Rotinas + rascunhos". Só com esse nível e com o cargo ligado
+    // no quadro da empresa, de hora em hora das 7h às 21h.
+    if (p.autonomy === 2 && process.env.QUADRO_API_TOKEN_FOLLOW_UP && hour >= FOLLOWUP_HOURS.from && hour <= FOLLOWUP_HOURS.to) {
       const period = `${todaySP(now)}T${String(hour).padStart(2, "0")}`;
       const res = await startFollowup(admin, p, period, hour);
       if (res.ok) started.push(`${p.userId.slice(0, 8)}: follow-up ${period}`);

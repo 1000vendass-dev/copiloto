@@ -3,7 +3,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 
 export type WaMessage = { id: string; direction: "entrada" | "saida"; type: string; body: string | null; sent_at: string; media_path: string | null };
-export type WaDraft = { id: string; body: string; source: "ia" | "manual"; created_at: string };
+export type WaDraft = { id: string; body: string; source: "ia" | "manual" | "follow_up" | "sdr" | "pos_venda"; created_at: string };
 
 /** Conversa do WhatsApp de um lead + rascunhos pendentes (lido com a sessão do usuário, RLS aplicada). */
 export async function getLeadWhatsApp(leadId: string) {

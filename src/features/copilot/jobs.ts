@@ -3,6 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { addDays, todaySP } from "@/lib/dates";
 import { effectiveHour, inWindow, parseConfig } from "./config";
+import { FOLLOWUP_HOURS, runFollowup } from "./followup";
 import { runNightly } from "./nightly";
 import type { AiProfile } from "./profile";
 
@@ -81,6 +82,33 @@ export async function tick(admin: Admin, now = new Date()) {
       if (res.ok) started.push(`${p.userId.slice(0, 8)}: nightly ${period}`);
       else skipped.push(`${p.userId.slice(0, 8)}: nightly (${res.reason})`);
     }
+    // Follow-up (equipe do CSO): só com o cargo ligado no quadro da empresa, de hora em hora das 7h às 21h
+    if (process.env.QUADRO_API_TOKEN_FOLLOW_UP && hour >= FOLLOWUP_HOURS.from && hour <= FOLLOWUP_HOURS.to) {
+      const period = `${todaySP(now)}T${String(hour).padStart(2, "0")}`;
+      const res = await startFollowup(admin, p, period, hour);
+      if (res.ok) started.push(`${p.userId.slice(0, 8)}: follow-up ${period}`);
+      else skipped.push(`${p.userId.slice(0, 8)}: follow-up (${res.reason})`);
+    }
   }
   return { hour, started, skipped };
+}
+
+/** Uma rodada por usuário e hora (a chave period impede duplicar). Roda em segundo plano, como a da noite. */
+async function startFollowup(admin: Admin, p: AiProfile, period: string, hora: number): Promise<Start> {
+  const ins = await admin.from("copilot_runs")
+    .insert({ team_id: p.teamId, user_id: p.userId, job: "follow_up", period, trigger: "agenda", status: "rodando", stats: {} })
+    .select("id").single();
+  if (!ins.data) return { ok: false, reason: ins.error?.code === "23505" ? "já rodou nesta hora" : ins.error?.message ?? "erro ao reservar" };
+  const id = ins.data.id as string;
+  void (async () => {
+    try {
+      const stats = await runFollowup({ admin, userId: p.userId, teamId: p.teamId, userName: await userNameOf(admin, p.userId), cfg: p.config, hora });
+      const status = stats.erros && !stats.rascunhos && !stats.pulados ? "erro" : stats.parcial || stats.erros ? "parcial" : "ok";
+      await admin.from("copilot_runs").update({ status, finished_at: new Date().toISOString(), stats }).eq("id", id);
+    } catch (e) {
+      console.error("[follow_up]", e instanceof Error ? e.message : e);
+      await admin.from("copilot_runs").update({ status: "erro", finished_at: new Date().toISOString(), error: (e instanceof Error ? e.message : "erro").slice(0, 300) }).eq("id", id);
+    }
+  })();
+  return { ok: true, runId: id };
 }

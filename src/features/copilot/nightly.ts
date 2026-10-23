@@ -77,7 +77,7 @@ type Done = { id: string; name: string; stage: string; resumo_dia: string; proxi
 const fmtWhen = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
 const val = (v: unknown) => (v === null || v === undefined || v === "" ? "—" : String(v));
 
-async function leadMessages(admin: Admin, leadId: string, since: string | null) {
+export async function leadMessages(admin: Admin, leadId: string, since: string | null) {
   const { data: contacts } = await admin.from("whatsapp_contacts").select("id").eq("lead_id", leadId);
   const cIds = (contacts ?? []).map((c) => c.id as string);
   if (!cIds.length) return [];
@@ -92,7 +92,7 @@ async function leadMessages(admin: Admin, leadId: string, since: string | null) 
   return (data ?? []).reverse();
 }
 
-function messageText(m: { type: string; body: string | null; transcript: string | null }): string {
+export function messageText(m: { type: string; body: string | null; transcript: string | null }): string {
   if (m.type === "audio") return m.transcript ? `[áudio] ${m.transcript}` : "[áudio sem transcrição]";
   if (m.type === "imagem") return m.body && !/^\[[^\]]+\]$/.test(m.body) ? `[foto] ${m.body}` : "[enviou uma foto]";
   if (m.type === "video") return "[enviou um vídeo]";

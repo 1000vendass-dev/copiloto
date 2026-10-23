@@ -9,9 +9,9 @@ import "server-only";
 
 type Json = Record<string, unknown>;
 
-async function chamaQuadro(comando: string, args: string[] = [], opcoes: Json = {}): Promise<Json> {
+/** `token`: a chave define quem age. Padrão = CSO (o chat); as rotinas da equipe usam a chave do próprio cargo. */
+export async function chamaQuadro(comando: string, args: string[] = [], opcoes: Json = {}, token = process.env.QUADRO_API_TOKEN): Promise<Json> {
   const url = process.env.QUADRO_API_URL;
-  const token = process.env.QUADRO_API_TOKEN;
   if (!url || !token) return { ok: false, error: "O quadro da empresa não está configurado neste servidor (QUADRO_API_URL/QUADRO_API_TOKEN)." };
   try {
     const res = await fetch(url, {

@@ -11,6 +11,13 @@ import type { WaDraft, WaMessage } from "./queries";
 import { MessageContent } from "./media-bubble";
 import { fmtSeconds, useVoiceRecorder } from "./voice-recorder";
 
+/** Quem da equipe comercial escreveu o rascunho (empresa de agentes). Nada é enviado sem o vendedor tocar em Enviar. */
+const DRAFT_LABEL: Record<string, string> = {
+  ia: "Rascunho do Copiloto — nada foi enviado",
+  follow_up: "Rascunho do Follow-up — nada foi enviado",
+  sdr: "Rascunho do SDR — nada foi enviado",
+  pos_venda: "Rascunho do Pós-venda — nada foi enviado",
+};
 const textareaCls = "w-full resize-none rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand";
 
 function Draft({ draft, leadId }: { draft: WaDraft; leadId: string }) {
@@ -32,7 +39,7 @@ function Draft({ draft, leadId }: { draft: WaDraft; leadId: string }) {
   return (
     <div className="glass space-y-2 rounded-3xl border-brand/40 p-3.5">
       <div className="flex items-center gap-1 text-xs font-medium text-brand">
-        <Sparkles className="h-3.5 w-3.5" aria-hidden />{draft.source === "ia" ? "Rascunho do Copiloto — nada foi enviado" : "Rascunho"}
+        <Sparkles className="h-3.5 w-3.5" aria-hidden />{DRAFT_LABEL[draft.source] ?? "Rascunho"}
       </div>
       <textarea className={textareaCls} rows={3} value={text} onChange={(e) => setText(e.target.value)} disabled={pending} />
       {error ? <p className="text-sm text-red-600" role="alert">{error}</p> : null}

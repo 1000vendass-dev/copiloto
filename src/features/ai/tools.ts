@@ -12,6 +12,7 @@ import { dayRangeSP, todaySP } from "@/lib/dates";
 import { placeholderName } from "@/lib/lead-name";
 import { linkLeadToWhatsApp } from "@/lib/whatsapp/ingest";
 import { REGISTER_INTERACTION_TOOL, registerInteraction } from "./interaction";
+import { QUADRO_TOOLS } from "./quadro";
 
 export type ToolContext = {
   supabase: SupabaseClient;
@@ -764,6 +765,8 @@ export const TOOLS: Tool[] = [
       return { ok: true, nada_enviado: true, onde: `${ctx.origin}/leads/${leadId}`, aviso: "Rascunho criado no card do lead. O vendedor precisa abrir, revisar e tocar em Enviar." };
     },
   },
+  // quadro da empresa de agentes (no quadro, o chat é o CSO)
+  ...QUADRO_TOOLS,
 ];
 
 export const TOOL_MAP =new Map(TOOLS.map((t) => [t.name, t]));

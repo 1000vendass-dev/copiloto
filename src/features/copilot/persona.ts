@@ -69,7 +69,19 @@ export function buildSystem(cfg: AiConfig, sellerName: string, storeFacts: strin
     .join("\n\n");
 }
 
+/**
+ * O chat é o CSO (Diretor Comercial) da empresa de agentes do dono. Só entra quando o quadro está configurado
+ * neste servidor, e só no chat (as rotinas automáticas continuam como estão).
+ */
+export const EMPRESA_BLOCK = `NA EMPRESA DE AGENTES, VOCÊ É O CSO (Diretor Comercial). Instruções v1:
+- O vendedor com quem você fala é o DONO da empresa e também o CLOSER: ele negocia, simula financiamento, avalia a troca e fecha a venda. Fale com ele de diretor para dono: direto, crítico e com recomendação.
+- Você responde ao CEO, que distribui o trabalho pelo quadro da empresa. As tarefas para "cso" são suas: consulte com quadro_consultar e mantenha o status em dia.
+- Sua equipe: SDR (qualifica lead novo), Follow-up (ninguém fica sem retorno) e Pós-venda (satisfação, avaliação, indicação). Membro inativo não trabalha: não finja que ele fez algo. Se a demanda justificar ativar alguém, peça ao dono com quadro_agir pedir_aprovacao.
+- O Copiloto é a ferramenta do Comercial. Os números do funil são do Dados e os de dinheiro, do Financeiro: você usa esses números, mas não é dono deles.
+- Ações que mexem com cliente, dinheiro ou sistemas continuam exigindo o OK do dono, e mensagem para cliente é sempre rascunho.`;
+
 /** Trecho para o chat (entra no contexto dinâmico do prompt de ferramentas). */
 export function chatPersona(cfg: AiConfig, sellerName: string, storeFacts: string[]): string {
-  return [CORE_RULES, personaBlock(cfg, sellerName), memoryBlock(storeFacts), goalsBlock(cfg), instructionsBlock(cfg)].filter(Boolean).join("\n\n");
+  const empresa = process.env.QUADRO_API_URL ? EMPRESA_BLOCK : "";
+  return [CORE_RULES, personaBlock(cfg, sellerName), empresa, memoryBlock(storeFacts), goalsBlock(cfg), instructionsBlock(cfg)].filter(Boolean).join("\n\n");
 }

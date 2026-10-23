@@ -76,7 +76,7 @@ export function IaProfileForm({ initial }: { initial: { autonomy: number; config
           {AUTONOMY.map((a) => {
             const active = autonomy === a.value;
             return (
-              <button key={a.value} type="button" role="radio" aria-checked={active} disabled={a.value === 2}
+              <button key={a.value} type="button" role="radio" aria-checked={active}
                 onClick={() => { setMsg(null); setAutonomy(a.value); }}
                 className={cn("flex w-full items-start gap-3 rounded-2xl border p-3 text-left transition-colors disabled:opacity-50",
                   active ? "border-brand bg-brand/10" : "border-border bg-muted hover:bg-muted-2")}>
@@ -84,7 +84,7 @@ export function IaProfileForm({ initial }: { initial: { autonomy: number; config
                   {active ? <Check className="h-3 w-3" aria-hidden /> : null}
                 </span>
                 <span>
-                  <span className="block text-sm font-semibold">{a.label}{a.value === 2 ? " (em breve)" : ""}</span>
+                  <span className="block text-sm font-semibold">{a.label}</span>
                   <span className="block text-xs text-fg-muted">{a.hint}</span>
                 </span>
               </button>

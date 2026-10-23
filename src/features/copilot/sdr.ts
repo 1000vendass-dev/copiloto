@@ -6,6 +6,7 @@ import { chamaQuadro } from "@/features/ai/quadro";
 import { parseVehicleQuery } from "@/features/inventory/parse-query";
 import { todaySP } from "@/lib/dates";
 import { pushToUser } from "@/lib/push";
+import { aprendizadosAprovados, blocoAprendizados } from "./aprendizados";
 import type { AiConfig } from "./config";
 import { loadEngagement } from "./engagement";
 import { callJson, emptyUsage, type Usage } from "./llm";
@@ -123,13 +124,13 @@ function prompt(lead: LeadRow, vendedor: string, estoque: string, msgs: { direct
   ].join("\n\n");
 }
 
-async function tarefaDoDia(dia: string): Promise<string | null> {
+export async function tarefaDoDiaSdr(dia: string): Promise<string | null> {
   const titulo = `SDR do dia ${dia.split("-").reverse().join("/")}`;
   const lista = await chamaQuadro("tarefas", [], { responsavel: "sdr" }, process.env.QUADRO_API_TOKEN_SDR);
   const existente = (Array.isArray(lista.itens) ? lista.itens : []).find((t: { titulo?: string }) => t.titulo === titulo) as { id?: string } | undefined;
   if (existente?.id) return String(existente.id);
   const criada = await chamaQuadro("criar", [], {
-    titulo, responsavel: "sdr", prioridade: "alta", prazo: `${dia}T21:59:00-03:00`,
+    titulo, responsavel: "sdr", prioridade: "alta", prazo: `${dia}T22:59:00-03:00`,
     descricao: "Lead novo não espera: resposta com qualificação para toda nova conversa e primeiro contato (a cada 15 min, 7h às 21h). Entrega: total do dia.",
   });
   const id = (criada.criada as { id?: string } | undefined)?.id;
@@ -149,8 +150,11 @@ export async function runSdr(opts: { admin: Admin; userId: string; teamId: strin
   if (due.length > MAX_LEADS) stats.parcial = true;
   if (!batch.length) return stats;
 
-  const system = buildSystem(cfg, userName, await storeFacts(admin, teamId),
-    `Você é o SDR da equipe comercial (empresa de agentes do dono; seu chefe é o CSO). Sua missão: lead novo não fica esperando, e chega qualificado para ${primeiro}. Você escreve rascunhos; ${primeiro} revisa e envia. Você nunca envia nada.`);
+  const system = [
+    buildSystem(cfg, userName, await storeFacts(admin, teamId),
+      `Você é o SDR da equipe comercial (empresa de agentes do dono; seu chefe é o CSO). Você é o dono de todo o trabalho de SDR: lead novo não fica esperando e chega qualificado para ${primeiro}. Você decide caso a caso como acolher e o que perguntar. Você escreve rascunhos; ${primeiro} revisa e envia. Você nunca envia nada.`),
+    blocoAprendizados(await aprendizadosAprovados("sdr", process.env.QUADRO_API_TOKEN_SDR)),
+  ].filter(Boolean).join("\n\n");
 
   const feitos: { id: string; name: string; motivo: string }[] = [];
   for (const { lead } of batch) {
@@ -205,7 +209,7 @@ export async function runSdr(opts: { admin: Admin; userId: string; teamId: strin
   }
 
   try {
-    const tarefa = await tarefaDoDia(todaySP());
+    const tarefa = await tarefaDoDiaSdr(todaySP());
     const token = process.env.QUADRO_API_TOKEN_SDR;
     if (tarefa && token) {
       const nota = `${String(hora).padStart(2, "0")}:${String(minuto).padStart(2, "0")}: ${stats.rascunhos} rascunho(s), ${stats.pulados} pulado(s), ${stats.camposPreenchidos} campo(s) preenchido(s)`;
@@ -221,12 +225,4 @@ export async function runSdr(opts: { admin: Admin; userId: string; teamId: strin
   stats.tokensIn = usage.input; stats.tokensOut = usage.output;
   stats.segundos = Math.round((Date.now() - t0) / 1000);
   return stats;
-}
-
-/** Fecha o dia do SDR no quadro (última checagem da janela), mesmo quando a última rodada não teve lead. */
-export async function entregaSdrDoDia(): Promise<void> {
-  const token = process.env.QUADRO_API_TOKEN_SDR;
-  if (!token) return;
-  const tarefa = await tarefaDoDia(todaySP());
-  if (tarefa) await chamaQuadro("entregar", [tarefa], { entrega: "Fim do dia do SDR (detalhe no histórico da tarefa)." }, token);
 }

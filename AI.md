@@ -78,19 +78,26 @@ O Copiloto é a ferramenta do departamento Comercial da empresa de agentes do do
 - **Chat = CSO (Diretor Comercial).** O bloco `EMPRESA_BLOCK` (`persona.ts`) entra só no chat. As ferramentas
   `quadro_consultar`/`quadro_agir` (`quadro.ts`) falam com a API do quadro usando a chave do cargo (`QUADRO_API_TOKEN`).
   Quadro da empresa ≠ agenda de clientes: lembrete de cliente continua em `registrar_atendimento` (regra I do prompt).
-- **Follow-up (`followup.ts`)** é o **Nível 2 · Rotinas + rascunhos** da aba IA e só REATIVA (decisão do dono:
-  SDR = lead novo; do atendimento em diante o lead é do dono). Roda de hora em hora das 7h às 21h, com
-  `QUADRO_API_TOKEN_FOLLOW_UP`. Entra o lead fora da etapa "novo" cuja última mensagem é do vendedor e está sem
-  resposta há X horas (aba IA, `routines.followup.semRespostaHoras`, padrão 6h), com menos de 3 mensagens seguidas
-  sem resposta. Ficam de fora ruído, lead sem conversa de cliente, rascunho pendente e rascunho do Follow-up dentro
-  das X horas. A IA (haiku) só escreve o rascunho (`source = follow_up`) ou pula com motivo. Resumo no chat com botão
-  para cada conversa; a tarefa "Follow-up do dia" no quadro é anotada a cada rodada e entregue às 21h.
+- **Follow-up (`followup.ts`)** é o DONO dos follow-ups do vendedor (Nível 2, com `QUADRO_API_TOKEN_FOLLOW_UP`, de hora
+  em hora das 7h às 21h). Não é regra fixa: para cada cliente decide rascunho / aguardar / encerrar, quando é o
+  próximo contato e o que fazer com cada tarefa pendente do lead (remarcar e assumir, concluir ou manter). O plano
+  fica em `leads.ai_insights.followup`; as tarefas que assume passam a `source = follow_up` (uma por cliente). O código
+  só guarda as proteções: nada é enviado; cliente que falou por último é do dono e etapa "novo" é do SDR; um rascunho
+  pendente por cliente e um do Follow-up a cada 20h; intervalo mínimo desde a última mensagem do vendedor (aba IA,
+  `routines.followup.semRespostaHoras`, padrão 6h). Só olha um cliente quando chega a data planejada, vence uma
+  tarefa, o cliente está sem plano ou a conversa andou. A rodada das 7h manda o plano do dia no chat.
+- **Cada tarefa tem um dono.** A rotina da noite não cria nem mexe em tarefa de lead que já tem tarefa pendente de um
+  agente (`follow_up`, `sdr`, `pos_venda`); a sugestão dela fica no resumo do dia para o agente usar.
 - **SDR (`sdr.ts`)** também é Nível 2 (com `QUADRO_API_TOKEN_SDR`): lead novo, etapas "novo" e "primeiro_contato". A cada
   15 min das 7h às 21h (mensagem fora do horário espera a janela abrir). Entra quem tem a ÚLTIMA mensagem do cliente
   (2+ min), sem rascunho pendente e sem rascunho do SDR depois dela. A IA responde com o estoque real (sem preço),
   faz UMA pergunta de qualificação e preenche só campos VAZIOS do cadastro (interesse, orçamento, pagamento, troca,
   prazo, origem). Não muda etapa: do atendimento em diante é o dono. Rascunho `source = sdr`, linha na timeline,
   resumo no chat com botão. Tarefa "SDR do dia" no quadro, entregue às 22h.
+- **Feedback do dia (`feedback.ts`), 22h:** cada agente mede o próprio trabalho das últimas 24h (rascunho enviado como
+  estava, editado, descartado, cliente respondeu), escreve o que funcionou e propõe até 2 ajustes nas próprias
+  instruções. Cada ajuste vira pedido de aprovação no quadro (página do CEO); aprovado, entra no prompt do agente
+  (`aprendizados.ts`). Também entrega a tarefa do dia no quadro.
 - O relógio (`copiloto-cron`) chama `tick` a cada 15 min; as rotinas de hora em hora não duplicam (período em
   `copilot_runs`).
 

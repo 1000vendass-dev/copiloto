@@ -178,9 +178,14 @@ async function applyAnalysis(ctx: NightlyCtx, lead: LeadRow, a: LeadAnalysis, fa
   // nome real do cliente, se ele mesmo disse (nunca troca um nome que o vendedor escreveu)
   if (a.nome_cliente && (await fillLeadName(admin, lead.id, a.nome_cliente))) stats.namesFilled++;
 
-  // próximo passo vira tarefa (uma tarefa da IA por lead; a análise mais nova a substitui)
+  // próximo passo vira tarefa (uma tarefa da IA por lead; a análise mais nova a substitui).
+  // Cada tarefa tem UM dono: se um agente da equipe (Follow-up, SDR, Pós-venda) já cuida deste lead, a rotina
+  // da noite não cria nem mexe em tarefa; a sugestão dela fica no resumo do dia para o agente usar.
   let nextTitle: string | null = null;
-  if (a.proxima_acao) {
+  const { data: doAgente } = await admin.from("tasks").select("id").eq("lead_id", lead.id).eq("status", "pendente")
+    .in("source", ["follow_up", "sdr", "pos_venda"]).limit(1);
+  if (a.proxima_acao && doAgente?.length) nextTitle = a.proxima_acao.titulo;
+  else if (a.proxima_acao) {
     const p = a.proxima_acao;
     nextTitle = p.titulo;
     const due = dueAt(p.em_dias, slot);

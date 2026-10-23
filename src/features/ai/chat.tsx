@@ -23,7 +23,7 @@ const TOOL_LABEL: Record<string, string> = {
   quadro_consultar: "Consultou o quadro", quadro_agir: "Registrou no quadro", follow_up: "Rascunho pronto", sdr: "Resposta pronta",
 };
 
-const KIND_LABEL: Record<string, string> = { relatorio: "🌙 Relatório do dia", briefing: "☀️ Briefing", alerta: "⚠️ Alerta", revisao: "📈 Revisão", follow_up: "🔁 Follow-up", sdr: "🆕 SDR · lead novo" };
+const KIND_LABEL: Record<string, string> = { relatorio: "🌙 Relatório do dia", briefing: "☀️ Briefing", alerta: "⚠️ Alerta", revisao: "📈 Revisão", follow_up: "🔁 Follow-up", sdr: "🆕 SDR · lead novo", feedback: "📋 Feedback da equipe" };
 
 const SUGGESTIONS = [
   "Quem eu preciso chamar hoje?",

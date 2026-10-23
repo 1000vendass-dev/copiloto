@@ -3,9 +3,10 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { addDays, todaySP } from "@/lib/dates";
 import { effectiveHour, inWindow, parseConfig } from "./config";
-import { FOLLOWUP_HOURS, runFollowup } from "./followup";
+import { feedbackDoDia, type Agente } from "./feedback";
+import { FOLLOWUP_HOURS, runFollowup, tarefaDoDiaFollowup } from "./followup";
 import { runNightly } from "./nightly";
-import { SDR_HOURS, entregaSdrDoDia, runSdr } from "./sdr";
+import { SDR_HOURS, runSdr, tarefaDoDiaSdr } from "./sdr";
 import type { AiProfile } from "./profile";
 
 type Admin = SupabaseClient;
@@ -105,9 +106,18 @@ export async function tick(admin: Admin, now = new Date()) {
           runSdr({ admin, userId: p.userId, teamId: p.teamId, userName, cfg: p.config, hora: hour, minuto: quarto }));
         if (res.ok) started.push(`${p.userId.slice(0, 8)}: sdr ${period}`);
         else skipped.push(`${p.userId.slice(0, 8)}: sdr (${res.reason})`);
-      } else if (hour === SDR_HOURS.to + 1) {
-        const res = await startEquipe(admin, p, "sdr_entrega", todaySP(now), async () => { await entregaSdrDoDia(); return {}; });
-        if (res.ok) started.push(`${p.userId.slice(0, 8)}: sdr entrega do dia`);
+      }
+    }
+    // 22h: feedback do dia de cada agente da equipe (mede o próprio trabalho, propõe ajustes, entrega a tarefa do dia)
+    if (p.autonomy === 2 && hour === SDR_HOURS.to + 1) {
+      const agentes: Agente[] = [
+        { cargo: "follow_up", nome: "Follow-up", papel: "Você é o dono dos follow-ups do vendedor: decide quem chamar, como, quando e quando parar.", token: process.env.QUADRO_API_TOKEN_FOLLOW_UP, tarefaDoDia: tarefaDoDiaFollowup },
+        { cargo: "sdr", nome: "SDR", papel: "Você é o dono do lead novo: acolhe, responde com o estoque real e qualifica.", token: process.env.QUADRO_API_TOKEN_SDR, tarefaDoDia: tarefaDoDiaSdr },
+      ];
+      for (const agente of agentes.filter((a) => a.token)) {
+        const res = await startEquipe(admin, p, `feedback_${agente.cargo}`, todaySP(now), async (userName) =>
+          feedbackDoDia({ admin, userId: p.userId, teamId: p.teamId, userName, cfg: p.config, agente }));
+        if (res.ok) started.push(`${p.userId.slice(0, 8)}: feedback ${agente.cargo}`);
       }
     }
   }

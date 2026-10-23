@@ -6,6 +6,7 @@ import { effectiveHour, inWindow, parseConfig } from "./config";
 import { feedbackDoDia, type Agente } from "./feedback";
 import { FOLLOWUP_HOURS, runFollowup, tarefaDoDiaFollowup } from "./followup";
 import { runNightly } from "./nightly";
+import { revisaoDoCso } from "./revisao-cso";
 import { SDR_HOURS, runSdr, tarefaDoDiaSdr } from "./sdr";
 import type { AiProfile } from "./profile";
 
@@ -118,6 +119,12 @@ export async function tick(admin: Admin, now = new Date()) {
         const res = await startEquipe(admin, p, `feedback_${agente.cargo}`, todaySP(now), async (userName) =>
           feedbackDoDia({ admin, userId: p.userId, teamId: p.teamId, userName, cfg: p.config, agente }));
         if (res.ok) started.push(`${p.userId.slice(0, 8)}: feedback ${agente.cargo}`);
+      }
+      // 22h30: o CSO revisa o dia da equipe (um faz, outro revisa) e manda o relatório do Comercial para o CEO
+      if (quarto >= 30 && process.env.QUADRO_API_TOKEN) {
+        const res = await startEquipe(admin, p, "revisao_cso", todaySP(now), async (userName) =>
+          revisaoDoCso({ admin, userId: p.userId, teamId: p.teamId, userName, cfg: p.config }));
+        if (res.ok) started.push(`${p.userId.slice(0, 8)}: revisão do CSO`);
       }
     }
   }

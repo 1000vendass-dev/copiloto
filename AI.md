@@ -98,6 +98,10 @@ O Copiloto é a ferramenta do departamento Comercial da empresa de agentes do do
   estava, editado, descartado, cliente respondeu), escreve o que funcionou e propõe até 2 ajustes nas próprias
   instruções. Cada ajuste vira pedido de aprovação no quadro (página do CEO); aprovado, entra no prompt do agente
   (`aprendizados.ts`). Também entrega a tarefa do dia no quadro.
+- **Revisão do CSO (`revisao-cso.ts`), 22h30:** regra "um faz, outro revisa". O CSO revisa as entregas do dia da equipe
+  (tarefas em revisão no quadro), conclui cada uma com parecer, registra elogio ou erro para o RH quando há
+  evidência, opina sobre os ajustes que a equipe pediu (a decisão é do dono) e entrega o "Relatório do Comercial"
+  para o CEO no quadro. O resumo vem para o chat.
 - O relógio (`copiloto-cron`) chama `tick` a cada 15 min; as rotinas de hora em hora não duplicam (período em
   `copilot_runs`).
 

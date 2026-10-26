@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { addDays, todaySP } from "@/lib/dates";
 import { effectiveHour, inWindow, parseConfig } from "./config";
 import { feedbackDoDia, type Agente } from "./feedback";
-import { FOLLOWUP_HOURS, runFollowup, tarefaDoDiaFollowup } from "./followup";
+import { domingoSP, FOLLOWUP_HOURS, runFollowup, tarefaDoDiaFollowup } from "./followup";
 import { runNightly } from "./nightly";
 import { revisaoDoCso } from "./revisao-cso";
 import { SDR_HOURS, runSdr, tarefaDoDiaSdr } from "./sdr";
@@ -90,8 +90,9 @@ export async function tick(admin: Admin, now = new Date()) {
       else skipped.push(`${p.userId.slice(0, 8)}: nightly (${res.reason})`);
     }
     // Follow-up (equipe do CSO) = "Nível 2 · Rotinas + rascunhos". Só com esse nível e com o cargo ligado
-    // no quadro da empresa, de hora em hora das 7h às 21h.
-    if (p.autonomy === 2 && process.env.QUADRO_API_TOKEN_FOLLOW_UP && hour >= FOLLOWUP_HOURS.from && hour <= FOLLOWUP_HOURS.to) {
+    // no quadro da empresa, de hora em hora das 7h às 21h. Domingo não (decisão do dono: é a folga do cliente,
+    // não ser inconveniente); o SDR continua respondendo quem escreve.
+    if (p.autonomy === 2 && process.env.QUADRO_API_TOKEN_FOLLOW_UP && hour >= FOLLOWUP_HOURS.from && hour <= FOLLOWUP_HOURS.to && !domingoSP(now)) {
       const period = `${todaySP(now)}T${String(hour).padStart(2, "0")}`;
       const res = await startEquipe(admin, p, "follow_up", period, async (userName) =>
         runFollowup({ admin, userId: p.userId, teamId: p.teamId, userName, cfg: p.config, hora: hour }));

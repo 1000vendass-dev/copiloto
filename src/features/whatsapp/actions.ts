@@ -139,6 +139,10 @@ export async function setContactType(leadId: string, type: string): Promise<WaRe
   const { data: lead } = await supabase.from("leads").select("stage,lost_reason").eq("id", leadId).maybeSingle();
   if (lead && type !== "cliente" && (OPEN_STAGES as string[]).includes(lead.stage)) {
     await changeLeadStage(leadId, "perdido", NOT_CUSTOMER_PREFIX + type);
+  }
+  if (type !== "cliente") {
+    // não é lead: o que a equipe comercial (SDR, Follow-up...) deixou pendente para ele perde o sentido
+    await supabase.from("whatsapp_drafts").update({ status: "descartado" }).eq("lead_id", leadId).eq("status", "pendente").in("source", ["sdr", "follow_up", "pos_venda"]);
   } else if (lead && type === "cliente" && lead.stage === "perdido" && lead.lost_reason?.startsWith(NOT_CUSTOMER_PREFIX)) {
     await changeLeadStage(leadId, "novo");
   }

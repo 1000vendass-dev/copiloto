@@ -25,7 +25,10 @@ import { storeFacts } from "./profile";
  *   - nada é enviado: o vendedor revisa e toca em Enviar;
  *   - cliente que falou por último é atendimento do dono; etapa "novo" é do SDR;
  *   - no máximo um rascunho pendente por cliente e um rascunho do Follow-up por cliente a cada 20h;
- *   - intervalo mínimo desde a última mensagem do vendedor (aba IA, routines.followup.semRespostaHoras).
+ *   - intervalo mínimo desde a última mensagem do vendedor (aba IA, routines.followup.semRespostaHoras);
+ *   - espaçamento contra denúncia/bloqueio do número: 2 mensagens seguidas sem resposta = 3 dias de intervalo,
+ *     3 ou mais = 7 dias (ESPACO);
+ *   - domingo não chama ninguém (a rotina não roda e a data planejada passa para segunda).
  * Para economizar, o agente só olha um cliente quando: chegou a data que ele planejou, venceu uma tarefa do lead,
  * o cliente nunca foi avaliado ou a conversa andou desde a última avaliação.
  * Roda de hora em hora, das 7h às 21h (Nível 2). A rodada das 7h manda o plano do dia no chat.
@@ -36,6 +39,19 @@ export const FOLLOWUP_HOURS = { from: 7, to: 21 };
 const MAX_LEADS = Number(process.env.FOLLOWUP_MAX_LEADS) || 40;
 const MAX_MS = 40 * 60 * 1000;
 const H = 3600 * 1000;
+
+/** Intervalo mínimo pelo número de mensagens seguidas do vendedor sem resposta (protege o número do WhatsApp). */
+const espaco = (semResposta: number) => (semResposta >= 3 ? 7 * 24 * H : semResposta === 2 ? 3 * 24 * H : 0);
+const diaSemanaSP = (d: Date) => new Intl.DateTimeFormat("en-US", { weekday: "short", timeZone: "America/Sao_Paulo" }).format(d);
+export const domingoSP = (d = new Date()) => diaSemanaSP(d) === "Sun";
+
+/** "19h (4x), 9h (2x)": os horários em que o cliente mais respondeu nos últimos 30 dias. */
+function horariosDele(horas: number[]): string {
+  if (!horas.length) return "sem resposta dele nos últimos 30 dias";
+  const n = new Map<number, number>();
+  for (const h of horas) n.set(h, (n.get(h) ?? 0) + 1);
+  return [...n.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0]).slice(0, 4).map(([h, c]) => `${h}h (${c}x)`).join(", ");
+}
 
 export type Plano = { proximo_em: string | null; estrategia: string; tentativas: number; avaliado_em: string; encerrar: string | null };
 type LeadRow = {
@@ -91,7 +107,7 @@ async function quemOlhar(admin: Admin, teamId: string, now: number, intervaloH: 
     const dele = e.ultimaDele ? Date.parse(e.ultimaDele) : null;
     const minha = e.ultimaMinha ? Date.parse(e.ultimaMinha) : null;
     if (!minha || (dele && dele > minha)) continue;         // cliente falou por último: atendimento do dono
-    if (now - minha < intervaloH * H) continue;             // intervalo mínimo desde a última mensagem
+    if (now - minha < Math.max(intervaloH * H, espaco(e.semResposta))) continue; // intervalo mínimo / espaçamento
     const plano = planoDe(lead);
     const tarefas = tarefasDe.get(lead.id) ?? [];
     const vencida = tarefas.find((t) => t.due_at && Date.parse(t.due_at) <= now);
@@ -122,6 +138,7 @@ function prompt(d: Due, vendedor: string, agora: string, sugestaoNoite: string |
     `CLIENTE: ${l.name} · etapa ${l.stage} · temperatura ${l.temperature ?? "sem"} · classe ${ins.classe ?? "?"}${ins.motivo_classificacao ? ` (${ins.motivo_classificacao})` : ""}`,
     `CADASTRO: interesse ${l.interest ?? "?"} · orçamento ${l.budget_max ? `R$ ${l.budget_max.toLocaleString("pt-BR")}` : "?"} · pagamento ${l.payment_method ?? "?"} · troca ${l.trade_in ?? "?"} · prazo ${l.purchase_timeframe ?? "?"}`,
     `ENGAJAMENTO: última do cliente ${fmt(d.eng.ultimaDele)} · última do vendedor ${fmt(d.eng.ultimaMinha)} · ${d.eng.semResposta} mensagem(ns) do vendedor seguidas sem resposta · ${d.eng.respostas3d} resposta(s) do cliente nos últimos 3 dias`,
+    `HORÁRIOS EM QUE ELE COSTUMA RESPONDER: ${horariosDele(d.eng.horasDele)}`,
     `SEU PLANO ANTERIOR: ${d.plano ? `${d.plano.estrategia} · tentativas ${d.plano.tentativas} · avaliado ${fmt(d.plano.avaliado_em)}` : "nenhum (primeira vez que você olha este cliente)"}`,
     `RESUMO DO HISTÓRICO (rotina da noite): ${l.ai_summary ?? "sem resumo ainda"}`,
     ins.travas?.length ? `TRAVAS: ${ins.travas.join("; ")}` : "",
@@ -134,7 +151,7 @@ function prompt(d: Due, vendedor: string, agora: string, sugestaoNoite: string |
       "- decisao 'rascunho': vale chamar AGORA. texto = UMA mensagem curta (até 3 frases), natural, com um motivo concreto tirado da conversa (o carro, a troca, uma dúvida aberta, uma novidade real), terminando com pergunta simples. Mude a abordagem se as anteriores não funcionaram. Nunca 'e aí, tudo bem?', nunca cobrar o cliente, nunca repetir a mensagem anterior.",
       "- decisao 'aguardar': não é hora (o cliente pediu um prazo, está decidindo, a última tentativa é recente demais para o perfil dele). texto null.",
       "- decisao 'encerrar' = SUGERIR ao vendedor que encerre (desistiu, comprou em outro lugar, sem condição, muitas tentativas sem sinal). texto null. Quem julga venda perdida é o vendedor: até ele marcar como perdido, o cliente continua no seu acompanhamento, então diga quando tentar de novo.",
-      "- proximo_followup_em: quando você volta a olhar este cliente se ele não responder (ISO com -03:00, entre 08:00 e 20:00). Ajuste ao perfil: quente = 1 dia, pesquisando = 3 a 7 dias, prazo dito pelo cliente = a data dele. Nunca null.",
+      "- proximo_followup_em: quando você volta a olhar este cliente se ele não responder (ISO com -03:00, entre 08:00 e 20:00, nunca domingo). Ajuste ao perfil: quente = 1 dia, pesquisando = 3 a 7 dias, prazo dito pelo cliente = a data dele. Escolha o horário em que ele costuma responder; se ainda não sabe, teste um horário diferente do da última tentativa para descobrir. Quanto mais mensagens seguidas sem resposta, maior o intervalo (protege o número do WhatsApp de denúncia): 2 sem resposta = 3 dias ou mais, 3 ou mais = uma semana ou mais. Nunca null.",
       "- tarefas: para cada tarefa pendente listada, diga 'remarcar' (é de contato/retorno: passa a ser sua e vai para a data do próximo follow-up), 'concluir' (já foi feita ou perdeu o sentido) ou 'manter' (não é de follow-up, ex.: avaliar carro de troca). Use só os ids listados.",
       "- NUNCA invente preço, condição, desconto, disponibilidade de carro ou prazo de banco.",
       "- motivo: 1 frase para o vendedor entender a decisão. estrategia: o plano para este cliente em 1 frase.",
@@ -142,17 +159,21 @@ function prompt(d: Due, vendedor: string, agora: string, sugestaoNoite: string |
   ].filter(Boolean).join("\n\n");
 }
 
-/** Normaliza a data proposta: futura (1h a 60 dias), dentro do horário comercial. */
-function proximaData(iso: string | null, now: number): string | null {
+/** Normaliza a data proposta: futura (1h a 60 dias, nunca antes de `minimo`), dentro do horário comercial, fora do domingo. */
+function proximaData(iso: string | null, now: number, minimo = 0): string | null {
   if (!iso) return null;
   const d = new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(iso) ? iso : `${iso}-03:00`);
   if (Number.isNaN(d.getTime())) return null;
-  const t = Math.min(Math.max(d.getTime(), now + H), now + 60 * 24 * H);
-  const out = new Date(t);
+  const t = Math.min(Math.max(d.getTime(), now + H, minimo), now + 60 * 24 * H);
+  let out = new Date(t);
   const hora = Number(new Intl.DateTimeFormat("en-GB", { hour: "2-digit", hour12: false, timeZone: "America/Sao_Paulo" }).format(out)) % 24;
   if (hora < 8 || hora > 20) {
     const dia = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date(t + (hora > 20 ? 12 * H : 0)));
-    return new Date(`${dia}T09:00:00-03:00`).toISOString();
+    out = new Date(`${dia}T09:00:00-03:00`);
+  }
+  if (domingoSP(out)) {
+    const segunda = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date(out.getTime() + 24 * H));
+    out = new Date(`${segunda}T09:00:00-03:00`);
   }
   return out.toISOString();
 }
@@ -207,7 +228,10 @@ export async function runFollowup(opts: { admin: Admin; userId: string; teamId: 
 
       const decisao = a.decisao === "rascunho" && !a.texto?.trim() ? "aguardar" : a.decisao;
       // quem julga venda perdida é o dono: "encerrar" é só sugestão e o cliente continua acompanhado
-      const proximo = proximaData(a.proximo_followup_em, now) ?? new Date(now + 3 * 24 * H).toISOString();
+      // espaçamento: com rascunho, conta a mensagem nova como mais uma sem resposta
+      const ultima = d.eng.ultimaMinha ? Date.parse(d.eng.ultimaMinha) : now;
+      const minimo = decisao === "rascunho" ? now + espaco(d.eng.semResposta + 1) : ultima + espaco(d.eng.semResposta);
+      const proximo = proximaData(a.proximo_followup_em, now, minimo) ?? proximaData(new Date(Math.max(now + 3 * 24 * H, minimo)).toISOString(), now)!;
 
       if (decisao === "rascunho") {
         const { error } = await admin.from("whatsapp_drafts").insert({ team_id: teamId, lead_id: d.lead.id, body: a.texto!.trim(), source: "follow_up", created_by: userId });

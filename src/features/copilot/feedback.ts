@@ -38,7 +38,13 @@ const norm = (s: string | null) => (s ?? "").replace(/\s+/g, " ").trim().toLower
 async function resultados(admin: Admin, teamId: string, source: string) {
   const desde = new Date(Date.now() - 24 * H).toISOString();
   const { data } = await admin.from("whatsapp_drafts").select("id,lead_id,body,status,created_at").eq("team_id", teamId).eq("source", source).gte("created_at", desde);
-  const rascunhos = (data ?? []) as Rascunho[];
+  // só quem é lead (o "Tipo de contato" do dono): spam, loja e parceiro não viram número nem aprendizado
+  const todos = (data ?? []) as Rascunho[];
+  const { data: clientes } = todos.length
+    ? await admin.from("whatsapp_contacts").select("lead_id").eq("categoria", "cliente").in("lead_id", [...new Set(todos.map((r) => r.lead_id))])
+    : { data: [] };
+  const ehCliente = new Set((clientes ?? []).map((c) => c.lead_id as string));
+  const rascunhos = todos.filter((r) => ehCliente.has(r.lead_id));
   const leadIds = [...new Set(rascunhos.map((r) => r.lead_id))];
   const msgsDe = new Map<string, Msg[]>();
   if (leadIds.length) {

@@ -13,11 +13,14 @@ export type Engagement = {
   ultimaMinha: string | null;
   semResposta: number;
   primeiraMinha: string | null;
+  /** Hora (SP) de cada mensagem do cliente na janela: mostra em que horário ele costuma responder. */
+  horasDele: number[];
 };
 
 const WINDOW_MS = 30 * 86400000;
 const chunk = <T,>(a: T[], n: number) => Array.from({ length: Math.ceil(a.length / n) }, (_, i) => a.slice(i * n, i * n + n));
-const empty = (): Engagement => ({ respostas3d: 0, ultimaDele: null, ultimaMinha: null, semResposta: 0, primeiraMinha: null });
+const empty = (): Engagement => ({ respostas3d: 0, ultimaDele: null, ultimaMinha: null, semResposta: 0, primeiraMinha: null, horasDele: [] });
+const horaSP = (iso: string) => Number(new Intl.DateTimeFormat("en-GB", { hour: "2-digit", hour12: false, timeZone: "America/Sao_Paulo" }).format(new Date(iso))) % 24;
 
 export async function loadEngagement(sb: SupabaseClient, leadIds: string[]): Promise<Map<string, Engagement>> {
   const out = new Map<string, Engagement>(leadIds.map((id) => [id, empty()]));
@@ -55,6 +58,7 @@ export async function loadEngagement(sb: SupabaseClient, leadIds: string[]): Pro
     if (m.direction === "entrada") {
       e.ultimaDele = m.sent_at;
       e.semResposta = 0;
+      e.horasDele.push(horaSP(m.sent_at));
       if (Date.parse(m.sent_at) >= threeDays) e.respostas3d++;
     } else {
       e.ultimaMinha = m.sent_at;

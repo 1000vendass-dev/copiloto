@@ -34,6 +34,7 @@ const MIN = 60 * 1000;
 type LeadRow = {
   id: string; name: string; stage: string; source: string | null; interest: string | null; budget_max: number | null;
   payment_method: string | null; trade_in: string | null; purchase_timeframe: string | null; vehicle_id: string | null;
+  ai_insights: Record<string, unknown> | null;
 };
 export type SdrStats = { candidatos: number; rascunhos: number; pulados: number; erros: number; camposPreenchidos: number; parcial: boolean; tokensIn: number; tokensOut: number; segundos: number };
 
@@ -56,7 +57,7 @@ const fmt = (iso: string) => new Date(iso).toLocaleString("pt-BR", { timeZone: "
 
 async function leadsNovos(admin: Admin, teamId: string, now: number) {
   const { data } = await admin.from("leads")
-    .select("id,name,stage,source,interest,budget_max,payment_method,trade_in,purchase_timeframe,vehicle_id")
+    .select("id,name,stage,source,interest,budget_max,payment_method,trade_in,purchase_timeframe,vehicle_id,ai_insights")
     .eq("team_id", teamId).in("stage", ["novo", "primeiro_contato"]).limit(500);
   const leads = (data ?? []) as LeadRow[];
   if (!leads.length) return [];
@@ -76,6 +77,8 @@ async function leadsNovos(admin: Admin, teamId: string, now: number) {
     const dele = Date.parse(e.ultimaDele);
     if (e.ultimaMinha && Date.parse(e.ultimaMinha) > dele) continue; // o dono já respondeu
     if (now - dele < 2 * MIN) continue; // dá tempo do dono responder na hora
+    // já avaliou esta mesma mensagem do cliente (respondeu ou decidiu pular): só volta quando chegar mensagem nova
+    if ((lead.ai_insights as { sdr?: { mensagem_cliente?: string } } | null)?.sdr?.mensagem_cliente === e.ultimaDele) continue;
     const ds = (drafts ?? []).filter((d) => d.lead_id === lead.id);
     if (ds.some((d) => d.status === "pendente")) continue;
     if (ds.some((d) => d.source === "sdr" && Date.parse(d.created_at as string) > dele)) continue; // já rascunhou essa mensagem
@@ -157,7 +160,7 @@ export async function runSdr(opts: { admin: Admin; userId: string; teamId: strin
   ].filter(Boolean).join("\n\n");
 
   const feitos: { id: string; name: string; motivo: string }[] = [];
-  for (const { lead } of batch) {
+  for (const { lead, desde } of batch) {
     if (Date.now() - t0 > MAX_MS) { stats.parcial = true; break; }
     try {
       const [msgs, estoque] = await Promise.all([leadMessages(admin, lead.id, null), estoqueRelacionado(admin, teamId, lead)]);
@@ -182,6 +185,10 @@ export async function runSdr(opts: { admin: Admin; userId: string; teamId: strin
         feitos.push({ id: lead.id, name: lead.name, motivo: data.motivo });
         stats.rascunhos++;
       }
+      // marca a mensagem do cliente como avaliada (evita reler o mesmo lead a cada 15 min)
+      await admin.from("leads").update({
+        ai_insights: { ...(lead.ai_insights ?? {}), sdr: { mensagem_cliente: desde, avaliado_em: new Date().toISOString(), decisao: data.acao, motivo: data.motivo } },
+      }).eq("id", lead.id);
       await admin.from("activities").insert({
         team_id: teamId, owner_id: userId, lead_id: lead.id, type: "ia", title: "SDR",
         description: [data.acao === "pular" ? `Sem rascunho: ${data.motivo}` : `Rascunho de resposta: ${data.motivo}`,

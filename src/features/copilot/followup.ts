@@ -133,8 +133,8 @@ function prompt(d: Due, vendedor: string, agora: string, sugestaoNoite: string |
       `Decida como dono do follow-up deste cliente. ${vendedor} revisa e envia o que você escrever.`,
       "- decisao 'rascunho': vale chamar AGORA. texto = UMA mensagem curta (até 3 frases), natural, com um motivo concreto tirado da conversa (o carro, a troca, uma dúvida aberta, uma novidade real), terminando com pergunta simples. Mude a abordagem se as anteriores não funcionaram. Nunca 'e aí, tudo bem?', nunca cobrar o cliente, nunca repetir a mensagem anterior.",
       "- decisao 'aguardar': não é hora (o cliente pediu um prazo, está decidindo, a última tentativa é recente demais para o perfil dele). texto null.",
-      "- decisao 'encerrar': não vale mais insistir (desistiu, comprou em outro lugar, sem condição, muitas tentativas sem sinal). texto null. O vendedor decide se marca como perdido.",
-      "- proximo_followup_em: quando você volta a olhar este cliente se ele não responder (ISO com -03:00, entre 08:00 e 20:00). Ajuste ao perfil: quente = 1 dia, pesquisando = 3 a 7 dias, prazo dito pelo cliente = a data dele. null só se encerrar.",
+      "- decisao 'encerrar' = SUGERIR ao vendedor que encerre (desistiu, comprou em outro lugar, sem condição, muitas tentativas sem sinal). texto null. Quem julga venda perdida é o vendedor: até ele marcar como perdido, o cliente continua no seu acompanhamento, então diga quando tentar de novo.",
+      "- proximo_followup_em: quando você volta a olhar este cliente se ele não responder (ISO com -03:00, entre 08:00 e 20:00). Ajuste ao perfil: quente = 1 dia, pesquisando = 3 a 7 dias, prazo dito pelo cliente = a data dele. Nunca null.",
       "- tarefas: para cada tarefa pendente listada, diga 'remarcar' (é de contato/retorno: passa a ser sua e vai para a data do próximo follow-up), 'concluir' (já foi feita ou perdeu o sentido) ou 'manter' (não é de follow-up, ex.: avaliar carro de troca). Use só os ids listados.",
       "- NUNCA invente preço, condição, desconto, disponibilidade de carro ou prazo de banco.",
       "- motivo: 1 frase para o vendedor entender a decisão. estrategia: o plano para este cliente em 1 frase.",
@@ -206,7 +206,8 @@ export async function runFollowup(opts: { admin: Admin; userId: string; teamId: 
       stats.avaliados++;
 
       const decisao = a.decisao === "rascunho" && !a.texto?.trim() ? "aguardar" : a.decisao;
-      const proximo = decisao === "encerrar" ? null : proximaData(a.proximo_followup_em, now) ?? new Date(now + 3 * 24 * H).toISOString();
+      // quem julga venda perdida é o dono: "encerrar" é só sugestão e o cliente continua acompanhado
+      const proximo = proximaData(a.proximo_followup_em, now) ?? new Date(now + 3 * 24 * H).toISOString();
 
       if (decisao === "rascunho") {
         const { error } = await admin.from("whatsapp_drafts").insert({ team_id: teamId, lead_id: d.lead.id, body: a.texto!.trim(), source: "follow_up", created_by: userId });
@@ -219,7 +220,7 @@ export async function runFollowup(opts: { admin: Admin; userId: string; teamId: 
       const ids = new Set(d.tarefas.map((t) => t.id));
       let minha: string | null = null;
       for (const t of a.tarefas.filter((x) => ids.has(x.id))) {
-        const concluir = t.acao === "concluir" || (t.acao === "remarcar" && (decisao === "encerrar" || minha !== null));
+        const concluir = t.acao === "concluir" || (t.acao === "remarcar" && minha !== null);
         if (concluir) {
           await admin.from("tasks").update({ status: "concluida", completed_at: nowIso(), updated_at: nowIso() }).eq("id", t.id);
           stats.tarefasConcluidas++;
@@ -262,7 +263,7 @@ export async function runFollowup(opts: { admin: Admin; userId: string; teamId: 
     const partes = [
       `**${hora === FOLLOWUP_HOURS.from ? "Plano do dia" : `Follow-up das ${String(hora).padStart(2, "0")}h`}**: olhei ${stats.avaliados} cliente${stats.avaliados === 1 ? "" : "s"}. ${rasc.length} rascunho${rasc.length === 1 ? "" : "s"} pronto${rasc.length === 1 ? "" : "s"}, ${stats.aguardar} remarcado${stats.aguardar === 1 ? "" : "s"}, ${enc.length} para encerrar. Nada foi enviado.`,
       rasc.length ? `**Rascunhos para revisar**\n${rasc.slice(0, 25).map((f) => `- **${f.name}**: ${f.motivo}`).join("\n")}` : "",
-      enc.length ? `**Sugiro encerrar** (você decide se marca como perdido)\n${enc.slice(0, 10).map((f) => `- **${f.name}**: ${f.motivo}`).join("\n")}` : "",
+      enc.length ? `**Sugiro encerrar** (só você julga: se não marcar como perdido, continuo acompanhando)\n${enc.slice(0, 10).map((f) => `- **${f.name}**: ${f.motivo}`).join("\n")}` : "",
     ].filter(Boolean);
     await admin.from("ai_messages").insert({
       team_id: teamId, user_id: userId, role: "assistant", content: partes.join("\n\n"),

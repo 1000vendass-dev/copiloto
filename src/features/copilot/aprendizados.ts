@@ -10,7 +10,7 @@ import { chamaQuadro } from "@/features/ai/quadro";
 
 export const PREFIXO = (cargo: string) => `Instrução para ${cargo}: `;
 
-type Aprovacao = { assunto?: string; status?: string; solicitado_por?: string; recomendacao?: string | null; decidido_em?: string | null };
+type Aprovacao = { assunto?: string; status?: string; solicitado_por?: string; recomendacao?: string | null; observacao?: string | null; decidido_em?: string | null };
 
 /** Instruções aprovadas pelo dono para este cargo (as mais novas primeiro, no máximo 12). */
 export async function aprendizadosAprovados(cargo: string, token: string | undefined): Promise<string[]> {
@@ -20,7 +20,7 @@ export async function aprendizadosAprovados(cargo: string, token: string | undef
   return itens
     .filter((a) => a.status === "aprovada" && a.solicitado_por === cargo && a.assunto?.startsWith(PREFIXO(cargo)))
     .slice(0, 12)
-    .map((a) => a.assunto!.slice(PREFIXO(cargo).length).trim());
+    .map((a) => `${a.assunto!.slice(PREFIXO(cargo).length).trim()}${a.observacao ? ` (observação do dono: ${a.observacao.trim()})` : ""}`);
 }
 
 export function blocoAprendizados(itens: string[]): string {

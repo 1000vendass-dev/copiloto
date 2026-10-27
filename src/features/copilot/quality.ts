@@ -23,7 +23,7 @@ export async function computeQuality(admin: SupabaseClient, teamId: string): Pro
   const [visits, noSource, noPhone, hotNoNext, overdue, audioNoText, waiting] = await Promise.all([
     admin.from("activities").select("id", { count: "exact", head: true }).eq("team_id", teamId).eq("type", "visita").gte("occurred_at", weekStartIso),
     admin.from("leads").select("name", { count: "exact" }).eq("team_id", teamId).in("stage", open).or("source.is.null,source.eq.").limit(4),
-    admin.from("leads").select("name", { count: "exact" }).eq("team_id", teamId).in("stage", open).is("phone", null).limit(4),
+    admin.from("leads").select("name", { count: "exact" }).eq("team_id", teamId).or("phone.is.null,phone.eq.").limit(4),
     admin.from("leads").select("id,name").eq("team_id", teamId).in("stage", open).eq("temperature", "quente").is("next_action_at", null).limit(40),
     admin.from("tasks").select("title", { count: "exact" }).eq("team_id", teamId).eq("status", "pendente").lt("due_at", nowIso).limit(4),
     admin.from("whatsapp_messages").select("id", { count: "exact", head: true }).eq("team_id", teamId).eq("type", "audio").is("transcript", null)
@@ -36,7 +36,7 @@ export async function computeQuality(admin: SupabaseClient, teamId: string): Pro
   if (visitsThisWeek === 0) items.push({ key: "sem_visitas", label: "Nenhuma visita registrada esta semana (use o botão Veio na loja)", count: 1, sample: [], severity: "alta" });
 
   if ((noSource.count ?? 0) > 0) items.push({ key: "sem_origem", label: "Leads em aberto sem origem (de onde vieram)", count: noSource.count ?? 0, sample: names(noSource.data), severity: "media" });
-  if ((noPhone.count ?? 0) > 0) items.push({ key: "sem_telefone", label: "Leads em aberto sem telefone", count: noPhone.count ?? 0, sample: names(noPhone.data), severity: "media" });
+  if ((noPhone.count ?? 0) > 0) items.push({ key: "sem_telefone", label: "Leads sem telefone (o telefone é a identificação do lead)", count: noPhone.count ?? 0, sample: names(noPhone.data), severity: "alta" });
 
   // quente sem próxima ação (e sem tarefa pendente)
   const hotIds = (hotNoNext.data ?? []).map((l) => l.id as string);

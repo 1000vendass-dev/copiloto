@@ -92,6 +92,14 @@ async function estado(admin: Admin, teamId: string) {
   };
 }
 
+/** Visitas do mês (fuso de São Paulo): as registradas com o botão "Veio na loja", para a meta de visitas do jogo. */
+async function visitasDoMes(admin: Admin, teamId: string) {
+  const mes = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit" }).format(new Date());
+  const inicio = new Date(`${mes}-01T00:00:00-03:00`).toISOString();
+  const { count } = await admin.from("activities").select("id", { count: "exact", head: true }).eq("team_id", teamId).eq("type", "visita").gte("occurred_at", inicio);
+  return count ?? 0;
+}
+
 async function estoque(admin: Admin, teamId: string) {
   const { data } = await admin.from("vehicles").select("id,brand,model,version,year_model,km,color,body_type,sale_price,status,entry_date,stock_code")
     .eq("team_id", teamId).in("status", ["disponivel", "reservado"]).order("entry_date", { ascending: true }).limit(40);
@@ -106,7 +114,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ acao
   try {
     const teamId = await equipe(admin);
     if (!teamId) return NextResponse.json({ error: "WhatsApp não configurado" }, { status: 503 });
-    return NextResponse.json({ ok: true, gerado_em: new Date().toISOString(), ...(await estado(admin, teamId)) });
+    return NextResponse.json({ ok: true, gerado_em: new Date().toISOString(), ...(await estado(admin, teamId)), visitas_mes: await visitasDoMes(admin, teamId) });
   } catch (e) {
     console.error("[jogo] estado", e instanceof Error ? e.message : e);
     return NextResponse.json({ error: "failed" }, { status: 500 });

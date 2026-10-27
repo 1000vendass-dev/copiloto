@@ -10,7 +10,8 @@ import { createClient } from "@/lib/supabase/server";
 import { ensureConversation, findAccount, recordMessage } from "@/lib/whatsapp/ingest";
 import { onlyDigits, shortId, toWaId } from "@/lib/whatsapp/phone";
 import { saveAudio, transcribeMessage } from "@/lib/whatsapp/media";
-import { sendText, sendVoice, wahaSession } from "@/lib/whatsapp/waha";
+import { sendVoice, wahaSession } from "@/lib/whatsapp/waha";
+import { enviarTexto, SEND_FAILED } from "@/lib/whatsapp/enviar";
 import { CONTACT_TYPES, NOT_CUSTOMER_PREFIX } from "./contact-types";
 
 export type WaResult = { ok: boolean; error?: string };
@@ -48,32 +49,17 @@ async function openChat(leadId: string) {
   return { supabase, admin, account, conv, waSession, chatId: `${onlyDigits(waId)}@c.us` } as const;
 }
 
-const SEND_FAILED = "Não consegui enviar. Confira se o WhatsApp do Copiloto está conectado.";
 
 export async function sendWhatsApp(leadId: string, text: string, draftId?: string): Promise<WaResult> {
-  const body = text.trim();
-  if (!body) return { ok: false, error: "Escreva a mensagem." };
-  if (body.length > 4000) return { ok: false, error: "Mensagem muito longa (máximo 4000 caracteres)." };
-  const chat = await openChat(leadId);
-  if ("error" in chat) return { ok: false, error: chat.error };
-  const { supabase, admin, account, conv, waSession, chatId } = chat;
-
-  let sent: { id: string | null };
-  try {
-    sent = await sendText(waSession, chatId, body);
-  } catch (e) {
-    console.error("[whatsapp/send]", e instanceof Error ? e.message : e);
-    return { ok: false, error: SEND_FAILED };
-  }
-
-  await recordMessage(admin, account, conv, {
-    externalId: sent.id ? shortId(sent.id) : null, direction: "saida", type: "texto", body, sentAt: new Date(),
-  });
-  if (draftId && uuid.safeParse(draftId).success) {
-    await supabase.from("whatsapp_drafts").update({ status: "enviado" }).eq("id", draftId).eq("lead_id", leadId).eq("status", "pendente");
-  }
-  revalidatePath(`/leads/${leadId}`);
-  return { ok: true };
+  const session = await getSession();
+  if (!uuid.safeParse(leadId).success) return { ok: false, error: "Lead inválido." };
+  // o vendedor só envia para lead que ele enxerga (RLS); o envio em si é o mesmo do jogo do escritório
+  const supabase = await createClient();
+  const { data: lead } = await supabase.from("leads").select("id").eq("id", leadId).maybeSingle();
+  if (!lead) return { ok: false, error: "Lead não encontrado." };
+  const r = await enviarTexto(createAdminClient(), session.teamId, leadId, text, draftId && uuid.safeParse(draftId).success ? draftId : undefined);
+  if (r.ok) revalidatePath(`/leads/${leadId}`);
+  return r;
 }
 
 const VOICE_TYPES = ["audio/webm", "audio/ogg", "audio/mp4", "audio/mpeg", "audio/aac", "audio/wav"];

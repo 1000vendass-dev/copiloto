@@ -758,6 +758,18 @@ export const TOOLS: Tool[] = [
       const r = await resolveLead(ctx, a);
       if (!("id" in r)) return r;
       const leadId = r.id as string;
+      // cliente que não conversa pelo WhatsApp do Copiloto: o vendedor manda do WhatsApp dele (texto + link no chat)
+      const { count: contatos } = await ctx.supabase.from("whatsapp_contacts").select("id", { count: "exact", head: true }).eq("lead_id", leadId);
+      if (!contatos) {
+        const { data: lead } = await ctx.supabase.from("leads").select("phone").eq("id", leadId).maybeSingle();
+        const tel = String(lead?.phone ?? "").replace(/\D/g, "");
+        const wa = tel.length === 10 || tel.length === 11 ? `55${tel}` : tel;
+        return {
+          ok: true, nada_enviado: true, canal: "seu_whatsapp",
+          copiar: { texto: text, link: wa.length >= 12 ? `https://wa.me/${wa}?text=${encodeURIComponent(text)}` : null },
+          aviso: "Este cliente não conversa pelo WhatsApp do Copiloto, então NÃO salvei no card. Mostre o texto no chat: o vendedor envia do WhatsApp dele (os botões Copiar e Abrir no WhatsApp aparecem sozinhos).",
+        };
+      }
       const { count } = await ctx.supabase.from("whatsapp_drafts").select("id", { count: "exact", head: true }).eq("lead_id", leadId).eq("status", "pendente");
       if ((count ?? 0) >= 3) return fail("Já existem 3 rascunhos pendentes para este lead. Peça ao vendedor para enviar ou descartar antes.");
       const { error } = await ctx.supabase.from("whatsapp_drafts").insert({ team_id: ctx.teamId, lead_id: leadId, body: text, source: "ia", created_by: ctx.userId });

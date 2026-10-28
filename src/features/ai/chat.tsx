@@ -3,12 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { MessageCircle, Mic, Send, Sparkles, Trash2 } from "lucide-react";
+import { Check, Copy, MessageCircle, Mic, Send, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
-type Action = { tool: string; ok: boolean; status: string; summary: string; lead?: { id: string; name: string; created: boolean } };
+type Action = { tool: string; ok: boolean; status: string; summary: string; lead?: { id: string; name: string; created: boolean }; copy?: { text: string; link: string | null } };
 type Msg = { id?: string; role: "user" | "assistant"; content: string; meta?: { actions?: Action[]; kind?: string }; pending?: boolean; error?: boolean };
 
 const TOOL_LABEL: Record<string, string> = {
@@ -20,7 +20,7 @@ const TOOL_LABEL: Record<string, string> = {
   create_appointment: "Agendou", search_appointments: "Consultou agenda", create_activity: "Registrou contato", search_activities: "Leu timeline",
   create_note: "Salvou nota", search_notes: "Buscou notas", search_proposals: "Buscou propostas", create_proposal: "Criou proposta",
   update_proposal: "Alterou proposta", who_to_call_today: "Priorizou contatos", save_memory: "Guardou memória", relatorio: "Para amanhã",
-  quadro_consultar: "Consultou o quadro", quadro_agir: "Registrou no quadro", follow_up: "Rascunho pronto", sdr: "Resposta pronta",
+  draft_whatsapp: "Rascunho pronto", read_whatsapp: "Leu o WhatsApp", quadro_consultar: "Consultou o quadro", quadro_agir: "Registrou no quadro", follow_up: "Rascunho pronto", sdr: "Resposta pronta",
 };
 
 const KIND_LABEL: Record<string, string> = { relatorio: "🌙 Relatório do dia", briefing: "☀️ Briefing", alerta: "⚠️ Alerta", revisao: "📈 Revisão", follow_up: "🔁 Follow-up", sdr: "🆕 SDR · lead novo", feedback: "📋 Feedback da equipe" };
@@ -183,6 +183,7 @@ export function CopilotoChat({ lead, className }: { lead?: { id: string; name: s
                     ))}
                   </div>
                 ) : null}
+                <CopyButtons actions={m.meta?.actions} />
                 <LeadButtons actions={m.meta?.actions} skip={leadId} />
               </div>
             </div>
@@ -212,6 +213,34 @@ export function CopilotoChat({ lead, className }: { lead?: { id: string; name: s
 }
 
 /** Botão para abrir a conversa de cada lead que a IA criou ou atualizou nesta resposta. */
+/** Rascunho de cliente que fala por outro WhatsApp: o vendedor copia ou abre o WhatsApp dele com o texto pronto. */
+function CopyButtons({ actions }: { actions?: Action[] }) {
+  const [copied, setCopied] = useState<number | null>(null);
+  const drafts = (actions ?? []).filter((a) => a.copy).map((a) => a.copy!);
+  if (!drafts.length) return null;
+  const copy = async (text: string, i: number) => {
+    try { await navigator.clipboard.writeText(text); setCopied(i); setTimeout(() => setCopied(null), 2000); } catch { /* sem permissão: o texto está na mensagem */ }
+  };
+  return (
+    <div className="mt-2 flex flex-col gap-1.5">
+      {drafts.map((d, i) => (
+        <div key={i} className="flex gap-1.5">
+          {d.link ? (
+            <a href={d.link} target="_blank" rel="noopener noreferrer"
+              className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-brand px-3.5 py-2.5 text-sm font-semibold text-white active:scale-[0.98]">
+              <MessageCircle className="h-4 w-4 shrink-0" aria-hidden />Abrir no WhatsApp
+            </a>
+          ) : null}
+          <button type="button" onClick={() => copy(d.text, i)}
+            className={cn("flex items-center justify-center gap-2 rounded-2xl border border-border bg-surface px-3.5 py-2.5 text-sm font-semibold active:scale-[0.98]", d.link ? "" : "flex-1")}>
+            {copied === i ? <Check className="h-4 w-4" aria-hidden /> : <Copy className="h-4 w-4" aria-hidden />}{copied === i ? "Copiado" : "Copiar"}
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function LeadButtons({ actions, skip }: { actions?: Action[]; skip?: string }) {
   const leads = [...new Map((actions ?? []).filter((a) => a.lead && a.lead.id !== skip).map((a) => [a.lead!.id, a.lead!])).values()];
   if (!leads.length) return null;

@@ -55,6 +55,7 @@ export const REGISTER_INTERACTION_TOOL = {
       nome: { type: "string", description: "nome do cliente como o vendedor falou" },
       telefone: { type: "string" },
       criar_se_nao_existir: { type: "boolean", description: "padrão true" },
+      cliente_novo: { type: "boolean", description: "true quando o vendedor confirmar que é outra pessoa com o mesmo nome: cria lead novo sem procurar por nome" },
       resumo: { type: "string", description: "o que aconteceu, em 1-2 frases objetivas (vai para a timeline)" },
       tipo_contato: { type: "string", enum: ["ligacao", "whatsapp", "email", "visita", "test_drive", "follow_up"], description: "como foi o contato; se não dito, follow_up" },
       contexto: { type: "string", description: "informação qualitativa durável (urgência, motivo, perfil). Vira nota. Omitir se não houver." },
@@ -94,12 +95,19 @@ export async function registerInteraction(a: Json, ctx: ToolContext): Promise<Js
     const open = (data ?? []).filter((l) => OPEN_STAGES.includes(l.stage));
     lead = open[0] ?? data?.[0] ?? null;
   }
-  if (!lead && nome) {
+  if (!lead && nome && a.cliente_novo !== true) {
     const clean = nome.replace(/[%_,()"'*:\\]/g, " ").trim();
-    const { data } = await sb.from("leads").select("*").ilike("name", `%${clean}%`).order("updated_at", { ascending: false }).limit(6);
+    const { data: byName } = await sb.from("leads").select("*").ilike("name", `%${clean}%`).order("updated_at", { ascending: false }).limit(6);
+    // telefone manda: veio telefone e ele não bateu → mesmo nome com outro telefone é outra pessoa
+    const data = tel.length >= 8 ? (byName ?? []).filter((l) => digits(l.phone).length < 8) : byName;
     const pool = (data ?? []).filter((l) => OPEN_STAGES.includes(l.stage));
     const cands = pool.length ? pool : data ?? [];
     const exact = cands.filter((l) => String(l.name).trim().toLowerCase() === nome.toLowerCase());
+    if (tel.length >= 8 && cands.length) {
+      // lead com o mesmo nome mas sem telefone: pode ser a mesma pessoa, então o vendedor decide
+      return { ok: false, status: "ambiguous", pergunta: "Existe lead com este nome sem telefone. É a mesma pessoa ou cliente novo? Mesma: chame de novo com lead_id. Novo: chame de novo com cliente_novo: true.",
+        candidatos: cands.map((l) => ({ id: l.id, nome: l.name, telefone: l.phone, etapa: stageLabel(String(l.stage)), interesse: l.interest })) };
+    }
     if (exact.length === 1) lead = exact[0];
     else if (cands.length === 1) lead = cands[0];
     else if (cands.length > 1) {

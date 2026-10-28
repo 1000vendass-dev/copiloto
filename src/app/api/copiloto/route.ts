@@ -89,7 +89,8 @@ export async function POST(req: NextRequest) {
     focusLead = lead;
   }
   const leadId = focusLead?.id ?? null;
-  const meta = leadId ? { leadId } : null;
+  // meta é NOT NULL no banco: com null o insert da mensagem do vendedor falhava calado (chat geral sem memória)
+  const meta = leadId ? { leadId } : {};
 
   // histórico curto (só texto) da mesma conversa: o contexto de negócio vem do banco via ferramentas, não do chat
   const [{ data: hist }, profile, facts, stores, leadContext] = await Promise.all([
